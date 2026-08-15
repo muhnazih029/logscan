@@ -6,6 +6,7 @@ const multer = require('multer');
 const db = require('./db');
 const LogService = require('./services/logService');
 const { extractFromImage } = require('./ocr');
+const { extractWithGemini } = require('./gemini');
 
 const logService = new LogService(db);
 
@@ -43,12 +44,12 @@ router.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     app: 'LogScan API',
-    version: '0.1.0',
+    version: '0.2.0',
     timestamp: new Date().toISOString()
   });
 });
 
-// POST /api/upload - Upload form photo and process OCR
+// POST /api/upload - Upload form photo and process with Gemini AI (fallback to Tesseract OCR)
 router.post('/upload', upload.single('foto'), async (req, res) => {
   try {
     if (!req.file) {
@@ -58,23 +59,40 @@ router.post('/upload', upload.single('foto'), async (req, res) => {
     const relativePath = path.relative(path.join(__dirname, '../'), req.file.path);
     console.log(`[Upload] Processing photo: ${relativePath}`);
 
-    // Run OCR & parsing
-    let ocrResult;
-    try {
-      ocrResult = await extractFromImage(req.file.path);
-    } catch (ocrErr) {
-      console.error('[Upload] OCR failed:', ocrErr.message);
-      ocrResult = {
-        fields: { no_lapen: null, no_kendaraan: null, block: null, total: null },
-        rawText: '',
-        confidence: 0
-      };
+    let extractionResult = null;
+    let engineUsed = 'ocr';
+
+    // 1. Try Gemini Vision AI first if API key configured
+    if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here') {
+      try {
+        console.log('[Upload] Running Gemini Vision AI extraction...');
+        extractionResult = await extractWithGemini(req.file.path);
+        engineUsed = 'gemini';
+      } catch (geminiErr) {
+        console.warn('[Upload] Gemini AI extraction failed or unavailable, falling back to local OCR:', geminiErr.message);
+      }
     }
 
-    const { fields, confidence, rawText } = ocrResult;
+    // 2. Fallback to Tesseract OCR if Gemini failed or key missing
+    if (!extractionResult) {
+      console.log('[Upload] Running Tesseract OCR fallback...');
+      try {
+        extractionResult = await extractFromImage(req.file.path);
+        engineUsed = 'ocr';
+      } catch (ocrErr) {
+        console.error('[Upload] OCR failed:', ocrErr.message);
+        extractionResult = {
+          fields: { no_lapen: null, no_kendaraan: null, block: null, total: null, diameter_detail: [] },
+          rawText: '',
+          confidence: 0
+        };
+      }
+    }
 
-    // Confidence routing: >= 0.9 auto-save, < 0.9 return pending for review or Gemini fallback
-    if (confidence >= 0.9) {
+    const { fields, confidence, rawText } = extractionResult;
+
+    // Confidence routing: >= 0.85 auto-save, < 0.85 return pending for review
+    if (confidence >= 0.85) {
       const createdLog = logService.createLog({
         ...fields,
         foto_path: relativePath,
@@ -85,7 +103,8 @@ router.post('/upload', upload.single('foto'), async (req, res) => {
       return res.json({
         success: true,
         status: 'auto',
-        message: 'Data berhasil diekstrak dan disimpan otomatis ✅',
+        engine: engineUsed,
+        message: `Data form log berhasil diekstrak via ${engineUsed === 'gemini' ? 'Gemini AI' : 'OCR'} dan disimpan otomatis ✅`,
         data: createdLog,
         confidence
       });
@@ -93,7 +112,8 @@ router.post('/upload', upload.single('foto'), async (req, res) => {
       return res.json({
         success: true,
         status: 'pending',
-        message: 'Data berhasil dibaca tetapi memerlukan konfirmasi (confidence < 90%)',
+        engine: engineUsed,
+        message: 'Data berhasil dibaca tetapi memerlukan konfirmasi Anda',
         data: {
           ...fields,
           foto_path: relativePath,

@@ -1,59 +1,55 @@
 /**
- * LogScan — Mobile-First PWA Main Frontend Application
+ * LogScan — High-End Ergonomic Mobile PWA Application Logic
  */
 
 document.addEventListener('DOMContentLoaded', () => {
   // State
-  let selectedFile = null;
   let currentPage = 1;
   let totalPages = 1;
   let searchDebounceTimer = null;
-  let deferredPrompt = null;
+  let activeLogData = null; // currently selected log record for matrix editing
+  let currentDiameterDetail = []; // array of { d: number, qty: number }
 
   // DOM Elements
-  const tabButtons = document.querySelectorAll('.nav-item');
-  const tabPanels = document.querySelectorAll('.tab-panel');
-  
-  const fileInput = document.getElementById('fileInput');
-  const dropZone = document.getElementById('dropZone');
-  const uploadPlaceholder = document.getElementById('uploadPlaceholder');
-  const previewWrapper = document.getElementById('previewWrapper');
-  const imagePreview = document.getElementById('imagePreview');
-  const clearImageBtn = document.getElementById('clearImageBtn');
-  const uploadBtn = document.getElementById('uploadBtn');
-  
-  const progressContainer = document.getElementById('progressContainer');
-  const progressBar = document.getElementById('progressBar');
-  const progressText = document.getElementById('progressText');
+  const scanCameraBtn = document.getElementById('scanCameraBtn');
+  const cameraFileInput = document.getElementById('cameraFileInput');
+  const uploadProgressCard = document.getElementById('uploadProgressCard');
+  const progressTitle = document.getElementById('progressTitle');
+  const progressSub = document.getElementById('progressSub');
+  const progressBarFill = document.getElementById('progressBarFill');
 
   const searchInput = document.getElementById('searchInput');
   const clearSearchBtn = document.getElementById('clearSearchBtn');
-  const tableBody = document.getElementById('tableBody');
+  const logFeedContainer = document.getElementById('logFeedContainer');
+  const feedCountBadge = document.getElementById('feedCountBadge');
   const paginationInfo = document.getElementById('paginationInfo');
   const prevPageBtn = document.getElementById('prevPageBtn');
   const nextPageBtn = document.getElementById('nextPageBtn');
 
-  const reviewModal = document.getElementById('reviewModal');
-  const reviewForm = document.getElementById('reviewForm');
-  const closeReviewModalBtn = document.getElementById('closeReviewModalBtn');
-  const cancelReviewBtn = document.getElementById('cancelReviewBtn');
-  const confidenceBadge = document.getElementById('confidenceBadge');
+  const matrixModal = document.getElementById('matrixModal');
+  const closeMatrixModalBtn = document.getElementById('closeMatrixModalBtn');
+  const matrixModalSap = document.getElementById('matrixModalSap');
+  const matrixModalNopol = document.getElementById('matrixModalNopol');
+  const editSapInput = document.getElementById('editSapInput');
+  const editNopolInput = document.getElementById('editNopolInput');
+  const matrixTotalDisplay = document.getElementById('matrixTotalDisplay');
+  const diameterMatrixGrid = document.getElementById('diameterMatrixGrid');
+  const saveMatrixBtn = document.getElementById('saveMatrixBtn');
+  const deleteLogBtn = document.getElementById('deleteLogBtn');
 
   const photoModal = document.getElementById('photoModal');
   const modalPhotoImage = document.getElementById('modalPhotoImage');
   const photoModalTitle = document.getElementById('photoModalTitle');
-  const photoModalDetail = document.getElementById('photoModalDetail');
   const closePhotoModalBtn = document.getElementById('closePhotoModalBtn');
-  
+
   const pwaInstallBtn = document.getElementById('pwaInstallBtn');
 
   // --- 1. Service Worker & PWA Install ---
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('[PWA] ServiceWorker registered:', reg.scope))
-      .catch(err => console.error('[PWA] ServiceWorker registration failed:', err));
+    navigator.serviceWorker.register('/sw.js').catch(err => console.log('[PWA] SW error:', err));
   }
 
+  let deferredPrompt = null;
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
@@ -64,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    console.log('[PWA] User choice outcome:', outcome);
+    console.log('[PWA] Outcome:', outcome);
     deferredPrompt = null;
     pwaInstallBtn.style.display = 'none';
   });
@@ -75,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dot = document.querySelector('.status-dot');
     if (navigator.onLine) {
       statusText.textContent = 'Online';
-      dot.style.backgroundColor = '#22c55e';
+      dot.style.backgroundColor = '#10b981';
     } else {
       statusText.textContent = 'Offline';
       dot.style.backgroundColor = '#ef4444';
@@ -84,191 +80,72 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('online', updateOnlineStatus);
   window.addEventListener('offline', updateOnlineStatus);
 
-  // --- 2. Tab Navigation ---
-  tabButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const targetTab = btn.getAttribute('data-tab');
-
-      tabButtons.forEach(b => b.classList.remove('active'));
-      tabPanels.forEach(p => p.classList.remove('active'));
-
-      btn.classList.add('active');
-      document.getElementById(targetTab).classList.add('active');
-
-      if (targetTab === 'tabData') {
-        loadTableData();
-      }
-    });
+  // --- 2. Scan & File Upload Handling ---
+  scanCameraBtn.addEventListener('click', () => {
+    cameraFileInput.click();
   });
 
-  // --- 3. Upload & Image Handling ---
-  fileInput.addEventListener('change', handleFileSelect);
-
-  dropZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropZone.classList.add('dragover');
-  });
-
-  dropZone.addEventListener('dragleave', () => {
-    dropZone.classList.remove('dragover');
-  });
-
-  dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      fileInput.files = e.dataTransfer.files;
-      handleFileSelect();
-    }
-  });
-
-  function handleFileSelect() {
-    const file = fileInput.files[0];
+  cameraFileInput.addEventListener('change', async () => {
+    const file = cameraFileInput.files[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      showToast('Hanya file gambar yang diperbolehkan', 'error');
+      showToast('Hanya file foto yang diperbolehkan', 'error');
       return;
     }
 
-    selectedFile = file;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      imagePreview.src = e.target.result;
-      uploadPlaceholder.style.display = 'none';
-      previewWrapper.style.display = 'block';
-      uploadBtn.disabled = false;
-    };
-    reader.readAsDataURL(file);
-  }
-
-  clearImageBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    resetUploadForm();
-  });
-
-  function resetUploadForm() {
-    selectedFile = null;
-    fileInput.value = '';
-    imagePreview.src = '';
-    uploadPlaceholder.style.display = 'block';
-    previewWrapper.style.display = 'none';
-    uploadBtn.disabled = true;
-    progressContainer.style.display = 'none';
-    progressBar.style.width = '0%';
-  }
-
-  // --- 4. Upload & Process Form ---
-  uploadBtn.addEventListener('click', async () => {
-    if (!selectedFile) return;
-
-    uploadBtn.disabled = true;
-    progressContainer.style.display = 'block';
-    updateProgress(20, 'Mengunggah foto form...');
+    uploadProgressCard.style.display = 'block';
+    updateProgress(25, 'Mengunggah Foto Form...', 'Mengirim foto ke server...');
 
     const formData = new FormData();
-    formData.append('foto', selectedFile);
+    formData.append('foto', file);
 
     try {
-      updateProgress(40, 'Membaca form via Tesseract OCR...');
-      
+      updateProgress(50, 'Menganalisis Form via Vision AI...', 'Membaca No. SAP & matriks diameter log...');
+
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData
       });
 
-      updateProgress(80, 'Memproses hasil ekstraksi...');
+      updateProgress(85, 'Memproses Hasil Extraksi...', 'Menyiapkan rincian diameter log...');
 
       const result = await response.json();
+      if (!result.success) throw new Error(result.error || 'Gagal mengekstrak foto');
 
-      if (!result.success) {
-        throw new Error(result.error || 'Gagal mengunggah foto');
-      }
-
-      updateProgress(100, 'Selesai!');
+      updateProgress(100, 'Selesai!', 'Data berhasil diekstrak.');
 
       if (result.status === 'auto') {
-        showToast('✅ Data berhasil diekstrak dan disimpan otomatis!', 'success');
-        resetUploadForm();
-        // Switch to Data tab
-        document.querySelector('[data-tab="tabData"]').click();
+        showToast('✅ Form berhasil dibaca dan disimpan otomatis!', 'success');
+        loadLogFeed();
       } else {
-        // Status pending (confidence < 90%) -> open review modal
-        showToast('⚠️ Data dibaca tetapi perlu konfirmasi Anda', 'warning');
-        openReviewModal(result.data, result.confidence);
+        showToast('ℹ️ Form dibaca, buka modal untuk verifikasi diameter', 'warning');
+        openMatrixModal(result.data);
       }
     } catch (err) {
-      console.error('[App] Upload error:', err);
-      showToast(err.message || 'Terjadi kesalahan saat memproses foto', 'error');
+      console.error('[Upload Error]', err);
+      showToast(err.message || 'Gagal memproses foto form', 'error');
     } finally {
       setTimeout(() => {
-        progressContainer.style.display = 'none';
-        uploadBtn.disabled = false;
-      }, 800);
+        uploadProgressCard.style.display = 'none';
+        cameraFileInput.value = '';
+      }, 1000);
     }
   });
 
-  function updateProgress(percent, text) {
-    progressBar.style.width = `${percent}%`;
-    progressText.textContent = text;
+  function updateProgress(percent, title, sub) {
+    progressBarFill.style.width = `${percent}%`;
+    progressTitle.textContent = title;
+    progressSub.textContent = sub;
   }
 
-  // --- 5. Review Modal ---
-  function openReviewModal(data, confidence) {
-    document.getElementById('reviewNoLapen').value = data.no_lapen || '';
-    document.getElementById('reviewNoKendaraan').value = data.no_kendaraan || '';
-    document.getElementById('reviewBlock').value = data.block || '';
-    document.getElementById('reviewNamaChecker').value = data.nama_checker || '';
-    document.getElementById('reviewTotal').value = data.total || data.jumlah_batang || 0;
-    document.getElementById('reviewFotoPath').value = data.foto_path || '';
-
-    const confPct = Math.round((confidence || 0) * 100);
-    confidenceBadge.querySelector('span').textContent = `${confPct}%`;
-
-    reviewModal.style.display = 'flex';
-  }
-
-  closeReviewModalBtn.addEventListener('click', () => reviewModal.style.display = 'none');
-  cancelReviewBtn.addEventListener('click', () => reviewModal.style.display = 'none');
-
-  reviewForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const payload = {
-      no_lapen: document.getElementById('reviewNoLapen').value,
-      no_kendaraan: document.getElementById('reviewNoKendaraan').value,
-      block: document.getElementById('reviewBlock').value,
-      nama_checker: document.getElementById('reviewNamaChecker').value,
-      jumlah_batang: parseInt(document.getElementById('reviewTotal').value, 10) || 0,
-      total: parseInt(document.getElementById('reviewTotal').value, 10) || 0,
-      foto_path: document.getElementById('reviewFotoPath').value,
-      status_verifikasi: 'manual'
-    };
-
-    try {
-      const response = await fetch('/api/logs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const resData = await response.json();
-      if (!resData.success) throw new Error(resData.error);
-
-      showToast('✅ Data berhasil disimpan ke database!', 'success');
-      reviewModal.style.display = 'none';
-      resetUploadForm();
-      document.querySelector('[data-tab="tabData"]').click();
-    } catch (err) {
-      showToast(err.message || 'Gagal menyimpan data', 'error');
-    }
-  });
-
-  // --- 6. Data Table & Search ---
+  // --- 3. Log Feed Loading & Search ---
   searchInput.addEventListener('input', () => {
     clearSearchBtn.style.display = searchInput.value ? 'block' : 'none';
     clearTimeout(searchDebounceTimer);
     searchDebounceTimer = setTimeout(() => {
       currentPage = 1;
-      loadTableData();
+      loadLogFeed();
     }, 300);
   });
 
@@ -276,26 +153,26 @@ document.addEventListener('DOMContentLoaded', () => {
     searchInput.value = '';
     clearSearchBtn.style.display = 'none';
     currentPage = 1;
-    loadTableData();
+    loadLogFeed();
   });
 
   prevPageBtn.addEventListener('click', () => {
     if (currentPage > 1) {
       currentPage--;
-      loadTableData();
+      loadLogFeed();
     }
   });
 
   nextPageBtn.addEventListener('click', () => {
     if (currentPage < totalPages) {
       currentPage++;
-      loadTableData();
+      loadLogFeed();
     }
   });
 
-  async function loadTableData() {
-    tableBody.innerHTML = '<tr><td colspan="7" class="empty-state"><span class="spinner-sm"></span> Memuat data...</td></tr>';
-    
+  async function loadLogFeed() {
+    logFeedContainer.innerHTML = '<div class="empty-feed"><span class="spinner-lg"></span><p style="margin-top:12px">Memuat data log...</p></div>';
+
     const query = encodeURIComponent(searchInput.value.trim());
     try {
       const response = await fetch(`/api/logs?q=${query}&page=${currentPage}&limit=25`);
@@ -309,137 +186,289 @@ document.addEventListener('DOMContentLoaded', () => {
       totalPages = pagination.totalPages || 1;
       currentPage = pagination.page || 1;
 
-      paginationInfo.textContent = `Halaman ${currentPage} dari ${totalPages} (${pagination.total} total data)`;
+      feedCountBadge.textContent = `${pagination.total} Form`;
+      paginationInfo.textContent = `Halaman ${currentPage} dari ${totalPages}`;
       prevPageBtn.disabled = currentPage <= 1;
       nextPageBtn.disabled = currentPage >= totalPages;
 
       if (logs.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="7" class="empty-state">Belum ada data log yang tersimpan.</td></tr>';
+        logFeedContainer.innerHTML = `
+          <div class="empty-feed">
+            <div class="empty-icon">🪵</div>
+            <h3>${searchInput.value ? 'Tidak Ditemukan' : 'Belum Ada Data Log'}</h3>
+            <p>${searchInput.value ? 'Coba kata kunci pencarian lain.' : 'Ketuk "Ambil Foto Form Baru" di atas untuk mulai mendigitalisasi form.'}</p>
+          </div>
+        `;
         return;
       }
 
-      tableBody.innerHTML = logs.map(row => `
-        <tr data-id="${row.id}">
-          <td class="cell-editable" data-field="no_lapen">${escapeHtml(row.no_lapen || '-')}</td>
-          <td class="cell-editable" data-field="no_kendaraan">${escapeHtml(row.no_kendaraan || '-')}</td>
-          <td class="cell-editable" data-field="block">${escapeHtml(row.block || '-')}</td>
-          <td class="cell-editable" data-field="nama_checker">${escapeHtml(row.nama_checker || '-')}</td>
-          <td class="text-right cell-editable" data-field="jumlah_batang">${row.jumlah_batang || 0}</td>
-          <td><span class="badge badge-${row.status_verifikasi}">${row.status_verifikasi}</span></td>
-          <td class="text-center">
-            <button class="btn-sm btn-secondary view-photo-btn" data-foto="${row.foto_path}" data-title="${row.no_lapen || 'Form'}">
-              📷 Foto
-            </button>
-          </td>
-        </tr>
-      `).join('');
-
-      attachTableEvents();
+      logFeedContainer.innerHTML = logs.map(row => renderLogCard(row)).join('');
+      attachCardEvents();
     } catch (err) {
-      console.error('[Table] Error loading data:', err);
-      tableBody.innerHTML = `<tr><td colspan="7" class="empty-state text-error">Gagal memuat data: ${err.message}</td></tr>`;
+      console.error('[Feed Error]', err);
+      logFeedContainer.innerHTML = `<div class="empty-feed"><p style="color:#dc2626">Gagal memuat data: ${err.message}</p></div>`;
     }
   }
 
-  // --- 7. Inline Editing ---
-  function attachTableEvents() {
-    // View photo button click
-    document.querySelectorAll('.view-photo-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const fotoPath = btn.getAttribute('data-foto');
-        const title = btn.getAttribute('data-title');
-        openPhotoModal(fotoPath, title);
-      });
-    });
+  function renderLogCard(row) {
+    const diameterDetails = Array.isArray(row.diameter_detail) ? row.diameter_detail : [];
+    
+    // Generate diameter pill tags
+    let pillsHtml = '';
+    if (diameterDetails.length > 0) {
+      const topPills = diameterDetails.slice(0, 4);
+      pillsHtml = topPills.map(item => `
+        <span class="dia-pill">Ø${item.d}: <strong>${item.qty} btg</strong></span>
+      `).join('');
+      if (diameterDetails.length > 4) {
+        pillsHtml += `<span class="dia-pill">+${diameterDetails.length - 4} lagi</span>`;
+      }
+    } else {
+      pillsHtml = '<span class="dia-pill" style="color:#94a3b8">Belum ada rincian diameter</span>';
+    }
 
-    // Double-click/click cell to edit
-    document.querySelectorAll('.cell-editable').forEach(cell => {
-      cell.addEventListener('click', function() {
-        if (this.classList.contains('cell-editing')) return;
+    const badgeClass = row.status_verifikasi === 'auto' ? 'badge-auto' : (row.status_verifikasi === 'edited' ? 'badge-edited' : 'badge-manual');
 
-        const currentText = this.textContent === '-' ? '' : this.textContent.trim();
-        const fieldName = this.getAttribute('data-field');
-        const row = this.closest('tr');
-        const logId = row.getAttribute('data-id');
+    return `
+      <div class="form-card" data-id="${row.id}" data-json='${escapeHtml(JSON.stringify(row))}'>
+        <div class="card-top-row">
+          <div class="sap-number">No. SAP: ${escapeHtml(row.no_lapen || '-')}</div>
+          <div class="nopol-tag">${escapeHtml(row.no_kendaraan || 'No Mobil -')}</div>
+        </div>
 
-        this.classList.add('cell-editing');
-        const input = document.createElement('input');
-        input.type = fieldName === 'jumlah_batang' ? 'number' : 'text';
-        input.value = currentText;
-        this.innerHTML = '';
-        this.appendChild(input);
-        input.focus();
+        <div class="card-main-stat">
+          <span class="stat-label">Total Batang Log</span>
+          <div class="stat-number">${row.jumlah_batang || row.total || 0}<span class="stat-unit">btg</span></div>
+        </div>
 
-        const saveEdit = async () => {
-          const newValue = input.value.trim();
-          this.classList.remove('cell-editing');
-          this.textContent = newValue || '-';
+        <div class="diameter-pills-row">
+          ${pillsHtml}
+        </div>
 
-          if (newValue !== currentText) {
-            try {
-              const payload = {};
-              payload[fieldName] = fieldName === 'jumlah_batang' ? (parseInt(newValue, 10) || 0) : newValue;
+        <div class="card-footer-row">
+          <span class="badge-status ${badgeClass}">${row.status_verifikasi || 'manual'}</span>
+          <div class="card-actions">
+            ${row.foto_path ? `<button class="btn-card-action btn-view-photo" data-foto="${row.foto_path}">📷 Foto</button>` : ''}
+            <button class="btn-card-action btn-edit-matrix">📊 Matriks Diameter</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
 
-              const response = await fetch(`/api/logs/${logId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-              });
+  function attachCardEvents() {
+    document.querySelectorAll('.form-card').forEach(card => {
+      const rawJson = card.getAttribute('data-json');
+      const logData = JSON.parse(rawJson);
 
-              const resData = await response.json();
-              if (!resData.success) throw new Error(resData.error);
-
-              showToast('✏️ Field berhasil diperbarui', 'success');
-              // Update badge to EDITED
-              const badgeCell = row.querySelector('.badge');
-              if (badgeCell) {
-                badgeCell.className = 'badge badge-edited';
-                badgeCell.textContent = 'edited';
-              }
-            } catch (err) {
-              showToast('Gagal memperbarui field: ' + err.message, 'error');
-              this.textContent = currentText || '-';
-            }
-          }
-        };
-
-        input.addEventListener('blur', saveEdit);
-        input.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            input.blur();
-          }
-        });
+      // Tap card or edit matrix button -> open Diameter Tally Matrix Editor
+      card.addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-view-photo')) {
+          e.stopPropagation();
+          const fotoPath = e.target.getAttribute('data-foto');
+          openPhotoModal(fotoPath, logData.no_lapen);
+          return;
+        }
+        openMatrixModal(logData);
       });
     });
   }
 
-  // --- 8. Photo Modal ---
-  function openPhotoModal(fotoPath, title) {
-    if (!fotoPath) {
-      showToast('Foto tidak tersedia untuk data ini', 'warning');
+  // --- 4. Diameter Tally Matrix Grid Editor ---
+  function openMatrixModal(logData) {
+    activeLogData = logData;
+    currentDiameterDetail = Array.isArray(logData.diameter_detail) ? [...logData.diameter_detail] : [];
+
+    matrixModalSap.textContent = logData.no_lapen || '-';
+    matrixModalNopol.textContent = logData.no_kendaraan || '-';
+    editSapInput.value = logData.no_lapen || '';
+    editNopolInput.value = logData.no_kendaraan || '';
+
+    renderMatrixGrid();
+    matrixModal.style.display = 'flex';
+  }
+
+  function renderMatrixGrid() {
+    // Generate Ø 20 cm to Ø 50 cm buttons
+    const cells = [];
+    const qtyMap = {};
+    currentDiameterDetail.forEach(item => {
+      qtyMap[item.d] = item.qty;
+    });
+
+    let calculatedTotal = 0;
+
+    for (let d = 20; d <= 50; d++) {
+      const qty = qtyMap[d] || 0;
+      calculatedTotal += qty;
+
+      cells.push(`
+        <div class="matrix-cell" data-d="${d}">
+          <div class="matrix-label">Ø ${d} cm</div>
+          <div class="matrix-controls">
+            <button class="btn-qty btn-minus" data-d="${d}">-</button>
+            <input type="number" class="matrix-qty-input" data-d="${d}" value="${qty}" min="0">
+            <button class="btn-qty btn-plus" data-d="${d}">+</button>
+          </div>
+        </div>
+      `);
+    }
+
+    diameterMatrixGrid.innerHTML = cells.join('');
+    matrixTotalDisplay.textContent = calculatedTotal;
+
+    // Attach +/- buttons and input events
+    diameterMatrixGrid.querySelectorAll('.btn-minus').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const d = parseInt(btn.getAttribute('data-d'), 10);
+        updateDiameterQty(d, -1);
+      });
+    });
+
+    diameterMatrixGrid.querySelectorAll('.btn-plus').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const d = parseInt(btn.getAttribute('data-d'), 10);
+        updateDiameterQty(d, 1);
+      });
+    });
+
+    diameterMatrixGrid.querySelectorAll('.matrix-qty-input').forEach(input => {
+      input.addEventListener('change', () => {
+        const d = parseInt(input.getAttribute('data-d'), 10);
+        const val = parseInt(input.value, 10) || 0;
+        setDiameterQty(d, val);
+      });
+    });
+  }
+
+  function updateDiameterQty(diameter, delta) {
+    const existingIndex = currentDiameterDetail.findIndex(item => item.d === diameter);
+    if (existingIndex >= 0) {
+      const newQty = Math.max(0, currentDiameterDetail[existingIndex].qty + delta);
+      if (newQty === 0) {
+        currentDiameterDetail.splice(existingIndex, 1);
+      } else {
+        currentDiameterDetail[existingIndex].qty = newQty;
+      }
+    } else if (delta > 0) {
+      currentDiameterDetail.push({ d: diameter, qty: delta });
+    }
+    renderMatrixGrid();
+  }
+
+  function setDiameterQty(diameter, qty) {
+    const existingIndex = currentDiameterDetail.findIndex(item => item.d === diameter);
+    if (qty <= 0) {
+      if (existingIndex >= 0) currentDiameterDetail.splice(existingIndex, 1);
+    } else {
+      if (existingIndex >= 0) {
+        currentDiameterDetail[existingIndex].qty = qty;
+      } else {
+        currentDiameterDetail.push({ d: diameter, qty: qty });
+      }
+    }
+    renderMatrixGrid();
+  }
+
+  closeMatrixModalBtn.addEventListener('click', () => matrixModal.style.display = 'none');
+
+  saveMatrixBtn.addEventListener('click', async () => {
+    if (!activeLogData) return;
+
+    // Filter out zero quantities and sort by diameter
+    const validDetails = currentDiameterDetail
+      .filter(item => item.qty > 0)
+      .sort((a, b) => a.d - b.d);
+
+    const calculatedTotal = validDetails.reduce((sum, item) => sum + item.qty, 0);
+
+    const payload = {
+      no_lapen: editSapInput.value.trim(),
+      no_kendaraan: editNopolInput.value.trim(),
+      diameter_detail: validDetails,
+      jumlah_batang: calculatedTotal,
+      total: calculatedTotal,
+      status_verifikasi: 'edited'
+    };
+
+    try {
+      let response;
+      if (activeLogData.id) {
+        // Existing record -> PUT update
+        response = await fetch(`/api/logs/${activeLogData.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        // Pending upload -> POST save
+        response = await fetch('/api/logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...payload,
+            foto_path: activeLogData.foto_path || '',
+            confidence_score: activeLogData.confidence_score || 1.0,
+            status_verifikasi: 'manual'
+          })
+        });
+      }
+
+      const resData = await response.json();
+      if (!resData.success) throw new Error(resData.error);
+
+      showToast('✅ Perubahan berhasil disimpan ke database!', 'success');
+      matrixModal.style.display = 'none';
+      loadLogFeed();
+    } catch (err) {
+      showToast('Gagal menyimpan: ' + err.message, 'error');
+    }
+  });
+
+  deleteLogBtn.addEventListener('click', async () => {
+    if (!activeLogData || !activeLogData.id) {
+      matrixModal.style.display = 'none';
       return;
     }
 
+    if (!confirm(`Hapus form log No. SAP: ${activeLogData.no_lapen || activeLogData.id}?`)) return;
+
+    try {
+      const response = await fetch(`/api/logs/${activeLogData.id}`, { method: 'DELETE' });
+      const resData = await response.json();
+      if (!resData.success) throw new Error(resData.error);
+
+      showToast('🗑️ Data berhasil dihapus', 'success');
+      matrixModal.style.display = 'none';
+      loadLogFeed();
+    } catch (err) {
+      showToast('Gagal menghapus data: ' + err.message, 'error');
+    }
+  });
+
+  // --- 5. Photo Modal Viewer ---
+  function openPhotoModal(fotoPath, sapTitle) {
+    if (!fotoPath) {
+      showToast('Foto tidak tersedia', 'warning');
+      return;
+    }
     const fullSrc = fotoPath.startsWith('/') ? fotoPath : `/${fotoPath}`;
     modalPhotoImage.src = fullSrc;
-    photoModalTitle.textContent = `Foto Form (No. SAP: ${title})`;
-    photoModalDetail.textContent = `File: ${fotoPath}`;
-
+    photoModalTitle.textContent = `Foto Form Fisik (SAP: ${sapTitle || '-'})`;
     photoModal.style.display = 'flex';
   }
 
   closePhotoModalBtn.addEventListener('click', () => photoModal.style.display = 'none');
 
-  // Close modals when clicking backdrop
-  [reviewModal, photoModal].forEach(modal => {
+  [matrixModal, photoModal].forEach(modal => {
     modal.addEventListener('click', (e) => {
       if (e.target === modal) modal.style.display = 'none';
     });
   });
 
-  // --- 9. Toast Helper ---
+  // --- 6. Toast Notification Helper ---
   function showToast(message, type = 'info') {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
@@ -455,13 +484,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 3500);
   }
 
-  // Initial setup
+  // Helper
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // Initial Load
   updateOnlineStatus();
+  loadLogFeed();
 });
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}

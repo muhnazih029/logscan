@@ -1,16 +1,16 @@
 # ISS-004 — AI Fallback: Gemini Flash API
 
-**Status:** [ ] Open  
+**Status:** [x] Closed  
 **Priority:** P1  
-**Estimasi:** 3–5 jam  
+**Estimasi:** 3–5 jam (Actual: 15 menit)  
 **Phase:** 3  
 **Depends on:** ISS-003
 
 ---
 
 ## Deskripsi
-Integrasikan Google Gemini Flash API sebagai fallback ketika OCR confidence < 90%.
-Gemini lebih akurat membaca tulisan tangan dari foto dokumen.
+Integrasikan Google Gemini Flash API sebagai mesin pengenalan data utama/fallback saat OCR lokal 
+menghasilkan confidence < 90%. Gemini membaca tulisan tangan dan rincian turus tabel diameter Ø secara presisi.
 
 ## Dependencies
 ```json
