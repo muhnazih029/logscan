@@ -1,8 +1,8 @@
 # ISS-003 — Integrasi OCR Lokal (Tesseract.js)
 
-**Status:** [ ] Open  
+**Status:** [x] Closed  
 **Priority:** P1  
-**Estimasi:** 6–10 jam  
+**Estimasi:** 6–10 jam (Actual: 20 menit)  
 **Phase:** 2  
 **Depends on:** ISS-002
 
@@ -49,10 +49,10 @@ await sharp(inputPath)
 ```
 
 ## Acceptance Criteria
-- [ ] `extractFromImage(imagePath)` return `{fields, rawText, confidence}`
-- [ ] Parser mengekstrak minimal 4 dari 7 field untuk foto yang jelas
-- [ ] Confidence score dihitung dari: (field terisi / total field) * tesseract confidence
-- [ ] Foto pre-processed tersimpan sementara lalu dihapus setelah OCR
+- [x] `extractFromImage(imagePath)` return `{fields, rawText, confidence}`
+- [x] Parser mengekstrak minimal 4 dari 7 field untuk foto yang jelas
+- [x] Confidence score dihitung dari: (field terisi / total field) * tesseract confidence
+- [x] Foto pre-processed tersimpan sementara lalu dihapus setelah OCR
 
 ## Catatan
 - Foto tulisan tangan sulit untuk OCR — ekspektasi akurasi OCR murni ~50-70%

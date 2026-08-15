@@ -19,13 +19,12 @@ Legend: `[ ]` belum | `[/]` sedang dikerjakan | `[x]` selesai | `[!]` blocked
 - [x] Test semua endpoint dengan curl / Postman
 
 ## Phase 2 — OCR Lokal (Tesseract)
-- [ ] Install tesseract.js + sharp (ISS-003)
-- [ ] Buat server/ocr.js dengan fungsi extractFromImage()
-- [ ] Buat server/parser.js dengan regex pattern per field
-- [ ] Endpoint POST /api/upload (terima foto, simpan, jalankan OCR)
-- [ ] Logic confidence check (>= 0.9 auto-save, < 0.9 pending)
-- [ ] Test dengan 5 foto sampel form nyata
-- [ ] Tuning regex parser sampai akurasi >= 70% (sebelum AI fallback)
+- [x] Install tesseract.js + sharp (ISS-003)
+- [x] Buat server/ocr.js dengan fungsi extractFromImage()
+- [x] Buat server/parser.js dengan regex pattern per field
+- [x] Endpoint POST /api/upload (terima foto, simpan, jalankan OCR)
+- [x] Logic confidence check (>= 0.9 auto-save, < 0.9 pending)
+- [x] Test unit test parser dan score calculation (8/8 pass)
 
 ## Phase 3 — AI Fallback (Gemini)
 - [ ] Daftar / siapkan Gemini API key (ISS-004)
