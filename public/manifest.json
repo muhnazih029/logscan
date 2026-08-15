@@ -1,0 +1,24 @@
+{
+  "name": "LogScan — Form Checking Log Kayu",
+  "short_name": "LogScan",
+  "description": "Aplikasi PWA pembaca dan pencatat form checking ulang panjang log kayu",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1b4332",
+  "theme_color": "#2d6a4f",
+  "icons": [
+    {
+      "src": "/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

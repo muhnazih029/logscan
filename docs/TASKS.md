@@ -37,23 +37,23 @@ Legend: `[ ]` belum | `[/]` sedang dikerjakan | `[x]` selesai | `[!]` blocked
 - [ ] Test dengan foto yang sengaja buram/miring
 
 ## Phase 4 — Frontend PWA
-- [ ] Buat public/index.html struktur 2 tab (ISS-005)
-- [ ] Buat public/style.css mobile-first
-- [ ] Upload page: UI foto + preview + progress
-- [ ] Logic: handle response status 'auto' vs 'pending'
-- [ ] Form konfirmasi (pre-filled) jika status 'pending'
-- [ ] Buat public/manifest.json
-- [ ] Buat public/sw.js (service worker cache)
-- [ ] Test install PWA di Chrome Android
+- [x] Buat public/index.html struktur 2 tab (ISS-005)
+- [x] Buat public/style.css mobile-first
+- [x] Upload page: UI foto + preview + progress
+- [x] Logic: handle response status 'auto' vs 'pending'
+- [x] Form konfirmasi (pre-filled) jika status 'pending'
+- [x] Buat public/manifest.json
+- [x] Buat public/sw.js (service worker cache)
+- [x] Test PWA asset serving (6/6 HTTP 200 pass)
 
 ## Phase 5 — Tabel, Pencarian & Edit
-- [ ] Render tabel data dari API (ISS-006)
-- [ ] Pagination 25 baris per halaman
-- [ ] Kolom pencarian real-time dengan debounce (ISS-006)
-- [ ] Tombol "Lihat Foto" per baris -> modal foto (ISS-007)
-- [ ] Pinch-to-zoom di foto modal (ISS-007)
-- [ ] Edit inline per field -> auto-save (ISS-007)
-- [ ] Badge status: AUTO / MANUAL / EDITED
+- [x] Render tabel data dari API (ISS-006)
+- [x] Pagination 25 baris per halaman
+- [x] Kolom pencarian real-time dengan debounce (ISS-006)
+- [x] Tombol "Lihat Foto" per baris -> modal foto (ISS-007)
+- [x] Image modal viewer & detail strip (ISS-007)
+- [x] Edit inline per field -> auto-save (ISS-007)
+- [x] Badge status: AUTO / MANUAL / EDITED
 - [ ] Test end-to-end di HP Android
 
 ## Deployment & QA

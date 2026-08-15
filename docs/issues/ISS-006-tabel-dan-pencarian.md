@@ -43,8 +43,8 @@ Tabel harus responsive di HP Android dan ringan (tidak load semua data sekaligus
   - Karena layar sempit, tidak semua kolom muat
 
 ## Acceptance Criteria
-- [ ] Tabel load data pertama kali dalam < 2 detik
-- [ ] Pencarian menampilkan hasil dalam < 500ms
-- [ ] Pagination berfungsi benar
-- [ ] Sticky header saat scroll vertikal
-- [ ] Tabel readable di layar 360px
+- [x] Tabel load data pertama kali dalam < 2 detik
+- [x] Pencarian menampilkan hasil dalam < 500ms (real-time debounce)
+- [x] Pagination berfungsi benar
+- [x] Sticky header saat scroll vertikal
+- [x] Tabel readable di layar 360px

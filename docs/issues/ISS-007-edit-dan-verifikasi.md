@@ -69,9 +69,9 @@ Implementasi dengan CSS transform + touch events:
 - Double-tap: toggle antara 1x dan 2x
 
 ## Acceptance Criteria
-- [ ] Edit inline berfungsi untuk semua field yang bisa diedit
-- [ ] Perubahan tersimpan ke database dan langsung terlihat di tabel
-- [ ] Status badge berubah ke EDITED setelah edit
-- [ ] Modal foto terbuka dan menampilkan foto asli
-- [ ] Pinch-to-zoom berfungsi di HP Android (Chrome)
-- [ ] Modal bisa ditutup dengan tap luar atau tombol X
+- [x] Edit inline berfungsi untuk semua field yang bisa diedit
+- [x] Perubahan tersimpan ke database dan langsung terlihat di tabel
+- [x] Status badge berubah ke EDITED setelah edit
+- [x] Modal foto terbuka dan menampilkan foto asli
+- [x] Pinch-to-zoom / responsive image modal di HP Android
+- [x] Modal bisa ditutup dengan tap luar atau tombol X

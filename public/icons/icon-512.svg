@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="40" fill="#2d6a4f"/>
+  <!-- Log Timber Icon -->
+  <circle cx="96" cy="96" r="48" fill="#1b4332" stroke="#d8f3dc" stroke-width="6"/>
+  <circle cx="96" cy="96" r="32" fill="none" stroke="#74c69d" stroke-width="4" stroke-dasharray="8 4"/>
+  <circle cx="96" cy="96" r="16" fill="none" stroke="#52b788" stroke-width="3"/>
+  <circle cx="96" cy="96" r="4" fill="#d8f3dc"/>
+  <!-- Scanner Overlay Frame -->
+  <path d="M 46,70 V 46 H 70" fill="none" stroke="#d8f3dc" stroke-width="6" stroke-linecap="round"/>
+  <path d="M 146,70 V 46 H 122" fill="none" stroke="#d8f3dc" stroke-width="6" stroke-linecap="round"/>
+  <path d="M 46,122 V 146 H 70" fill="none" stroke="#d8f3dc" stroke-width="6" stroke-linecap="round"/>
+  <path d="M 146,122 V 146 H 122" fill="none" stroke="#d8f3dc" stroke-width="6" stroke-linecap="round"/>
+</svg>

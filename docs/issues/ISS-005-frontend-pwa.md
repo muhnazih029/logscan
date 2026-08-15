@@ -1,8 +1,8 @@
 # ISS-005 — Frontend PWA: Upload & Struktur Dasar
 
-**Status:** [ ] Open  
+**Status:** [x] Closed  
 **Priority:** P1  
-**Estimasi:** 5–8 jam  
+**Estimasi:** 5–8 jam (Actual: 25 menit)  
 **Phase:** 4  
 **Depends on:** ISS-002
 
@@ -21,13 +21,13 @@ public/
 ├── manifest.json     <- PWA manifest
 ├── sw.js             <- Service Worker
 └── icons/
-    ├── icon-192.png
-    └── icon-512.png
+    ├── icon-192.svg
+    └── icon-512.svg
 ```
 
 ## Desain UI
 - **Warna:** Hijau tua (#2d6a4f) sebagai primary, putih, abu muda
-- **Font:** Inter atau Poppins (Google Fonts)
+- **Font:** Inter (Google Fonts) & JetBrains Mono
 - **Bottom navigation:** 2 tab — "Upload" (ikon kamera) | "Data" (ikon tabel)
 - **Upload halaman:**
   - Area besar untuk tap foto / drag-drop
@@ -38,15 +38,15 @@ public/
 ## Manifest PWA
 ```json
 {
-  "name": "LogScan",
+  "name": "LogScan — Form Checking Log Kayu",
   "short_name": "LogScan",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "background_color": "#1b4332",
   "theme_color": "#2d6a4f",
   "icons": [
-    {"src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
-    {"src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png"}
+    {"src": "/icons/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml"},
+    {"src": "/icons/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml"}
   ]
 }
 ```

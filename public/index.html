@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#2d6a4f">
+  <meta name="description" content="Digitalisasi Form Checking Ulang Panjang Log 260 CM">
+  <title>LogScan — Digital Checking Form Log</title>
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="/icons/icon-192.svg">
+  <link rel="apple-touch-icon" href="/icons/icon-192.svg">
+
+  <!-- Inter Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <!-- Top App Bar -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="brand-title">LogScan</h1>
+        <p class="brand-subtitle">PT Sumber Graha Sejahtera</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="pwaInstallBtn" class="btn-install" style="display: none;">
+        <span>Install App</span>
+      </button>
+      <div class="status-pill">
+        <span class="status-dot"></span>
+        <span id="networkStatusText">Online</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="app-content">
+
+    <!-- TAB 1: UPLOAD & SCAN -->
+    <section id="tabUpload" class="tab-panel active">
+      <div class="card scan-card">
+        <div class="card-header">
+          <h2>Foto Form Log</h2>
+          <p>Ambil foto Form Checking Ulang Panjang Log 260 CM</p>
+        </div>
+
+        <!-- Upload Dropzone -->
+        <div id="dropZone" class="upload-dropzone">
+          <input type="file" id="fileInput" accept="image/*" capture="environment">
+          <div class="upload-placeholder" id="uploadPlaceholder">
+            <div class="upload-icon">
+              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            </div>
+            <p class="upload-title">Ketuk untuk Ambil Foto / Pilih File</p>
+            <p class="upload-desc">Format JPG, PNG, WEBP (Maks 10MB)</p>
+          </div>
+
+          <!-- Image Preview -->
+          <div class="preview-wrapper" id="previewWrapper" style="display: none;">
+            <img id="imagePreview" src="" alt="Preview Form">
+            <button type="button" id="clearImageBtn" class="btn-icon btn-remove" title="Hapus foto">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Progress Indicator -->
+        <div id="progressContainer" class="progress-box" style="display: none;">
+          <div class="progress-bar-bg">
+            <div id="progressBar" class="progress-bar-fill" style="width: 0%;"></div>
+          </div>
+          <div class="progress-status">
+            <span class="spinner-sm"></span>
+            <span id="progressText">Mempersiapkan gambar...</span>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="form-actions">
+          <button id="uploadBtn" class="btn btn-primary btn-block" disabled>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <span>Ekstrak & Process Form</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: DATA TABEL -->
+    <section id="tabData" class="tab-panel">
+      <!-- Search & Filters -->
+      <div class="search-bar-card">
+        <div class="search-input-wrapper">
+          <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="searchInput" placeholder="Cari No. SAP / No. Mobil / Block / Checker...">
+          <button id="clearSearchBtn" class="btn-clear-search" style="display: none;">&times;</button>
+        </div>
+      </div>
+
+      <!-- Data Table Card -->
+      <div class="card table-card">
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>No. SAP</th>
+                <th>No. Mobil</th>
+                <th>Block</th>
+                <th>Checker</th>
+                <th class="text-right">Jml Batang</th>
+                <th>Status</th>
+                <th class="text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <tr>
+                <td colspan="7" class="empty-state">Memuat data...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-bar">
+          <span id="paginationInfo" class="pagination-info">Halaman 1 dari 1</span>
+          <div class="pagination-controls">
+            <button id="prevPageBtn" class="btn btn-secondary btn-sm" disabled>Prev</button>
+            <button id="nextPageBtn" class="btn btn-secondary btn-sm" disabled>Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-tab="tabUpload">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </svg>
+      <span>Upload Form</span>
+    </button>
+    <button class="nav-item" data-tab="tabData">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <line x1="3" y1="9" x2="21" y2="9"/>
+        <line x1="3" y1="15" x2="21" y2="15"/>
+        <line x1="9" y1="3" x2="9" y2="21"/>
+        <line x1="15" y1="3" x2="15" y2="21"/>
+      </svg>
+      <span>Data Log</span>
+    </button>
+  </nav>
+
+  <!-- MODAL REVIEW DATA (Pre-filled Form) -->
+  <div id="reviewModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Konfirmasi Data Form</h3>
+        <button id="closeReviewModalBtn" class="modal-close">&times;</button>
+      </div>
+      <form id="reviewForm" class="modal-body">
+        <div class="confidence-badge" id="confidenceBadge">
+          Confidence OCR: <span>75%</span>
+        </div>
+
+        <div class="form-group">
+          <label for="reviewNoLapen">No. SAP / Lapen</label>
+          <input type="text" id="reviewNoLapen" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="reviewNoKendaraan">No. Mobil</label>
+            <input type="text" id="reviewNoKendaraan" placeholder="misal: AA 8979 IB">
+          </div>
+          <div class="form-group">
+            <label for="reviewBlock">Block</label>
+            <input type="text" id="reviewBlock" placeholder="misal: B.16">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="reviewNamaChecker">Nama Checker</label>
+            <input type="text" id="reviewNamaChecker">
+          </div>
+          <div class="form-group">
+            <label for="reviewTotal">Jumlah Batang</label>
+            <input type="number" id="reviewTotal" min="0" required>
+          </div>
+        </div>
+
+        <input type="hidden" id="reviewFotoPath">
+
+        <div class="modal-footer">
+          <button type="button" id="cancelReviewBtn" class="btn btn-secondary">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan ke Database</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL LIHAT FOTO ASLI -->
+  <div id="photoModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card photo-modal-card">
+      <div class="modal-header">
+        <h3 id="photoModalTitle">Foto Form</h3>
+        <button id="closePhotoModalBtn" class="modal-close">&times;</button>
+      </div>
+      <div class="photo-viewer-container">
+        <img id="modalPhotoImage" src="" alt="Foto Asli Form">
+      </div>
+      <div id="photoModalDetail" class="photo-detail-strip">
+        <!-- Details auto populated -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
