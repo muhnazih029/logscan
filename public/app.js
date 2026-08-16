@@ -1,5 +1,6 @@
 /**
  * LogScan — Sampoerna Kayoe High-End Ergonomic Mobile PWA Logic
+ * Instant Upload + Async Background AI Processing Queue
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -13,6 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let activePanjangFilter = 'all'; // 'all', '260 CM', '130 CM'
   let cropperInstance = null; // Cropper.js instance
   let showOnlyActiveFilter = false; // toggle zero filter
+  let queuePollInterval = null;
+  let lastProcessingCount = 0;
 
   // DOM Elements
   const scanCameraBtn = document.getElementById('scanCameraBtn');
@@ -198,38 +201,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function uploadCroppedBlob(imageBlob) {
     uploadProgressCard.style.display = 'block';
-    updateProgress(25, 'Mengunggah Foto Form Hasil Potong...', 'Mengirim foto terfokus ke Gemini AI...');
+    updateProgress(50, 'Mengunggah Foto Form (<100ms)...', 'Menyimpan foto ke server...');
 
     const formData = new FormData();
     formData.append('foto', imageBlob, `form_crop_${Date.now()}.jpg`);
 
     try {
-      updateProgress(50, 'Menganalisis Form via Gemini Vision AI...', 'Membaca No. SAP & rincian diameter log...');
-
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData
       });
 
-      updateProgress(85, 'Memproses Hasil Extraksi...', 'Menyiapkan rincian diameter & Marking S...');
-
       const result = await response.json();
-      if (!result.success) throw new Error(result.error || 'Gagal mengekstrak foto');
+      if (!result.success) throw new Error(result.error || 'Gagal mengunggah foto');
 
-      updateProgress(100, 'Selesai!', 'Data berhasil diekstrak.');
+      updateProgress(100, 'Tersimpan!', 'Foto tersimpan. AI sedang mengekstrak di latar belakang.');
+      showToast('⚡ Foto tersimpan! Gemini AI sedang mengekstrak di latar belakang ⏳', 'info');
+      
+      loadLogFeed();
+      startQueuePolling();
 
-      const engineName = result.engine === 'gemini' ? 'Gemini AI' : 'OCR';
-
-      if (result.status === 'auto') {
-        showToast(`✅ Data diekstrak via ${engineName} & disimpan otomatis!`, 'success');
-        loadLogFeed();
-      } else {
-        showToast(`ℹ️ Data dibaca via ${engineName}, buka modal untuk verifikasi`, 'warning');
-        openMatrixModal(result.data);
-      }
     } catch (err) {
       console.error('[Upload Error]', err);
-      showToast(err.message || 'Gagal memproses foto form', 'error');
+      showToast(err.message || 'Gagal mengunggah foto form', 'error');
     } finally {
       setTimeout(() => {
         uploadProgressCard.style.display = 'none';
@@ -241,6 +235,39 @@ document.addEventListener('DOMContentLoaded', () => {
     progressBarFill.style.width = `${percent}%`;
     progressTitle.textContent = title;
     progressSub.textContent = sub;
+  }
+
+  // --- Background Queue Polling ---
+  function startQueuePolling() {
+    if (queuePollInterval) return;
+    queuePollInterval = setInterval(checkQueueStatus, 3000);
+    checkQueueStatus();
+  }
+
+  async function checkQueueStatus() {
+    try {
+      const res = await fetch('/api/processing-count');
+      const data = await res.json();
+      const count = data.processingCount || 0;
+
+      if (count > 0) {
+        lastProcessingCount = count;
+        // Reload feed if count changed or processing
+        loadLogFeed(true);
+      } else if (lastProcessingCount > 0) {
+        // Queue just finished!
+        lastProcessingCount = 0;
+        clearInterval(queuePollInterval);
+        queuePollInterval = null;
+        showToast('✅ Semua foto form selesai diproses AI!', 'success');
+        loadLogFeed();
+      } else {
+        clearInterval(queuePollInterval);
+        queuePollInterval = null;
+      }
+    } catch (err) {
+      console.warn('[Queue Poll Error]', err);
+    }
   }
 
   // --- 4. Length Filter Tabs & Search ---
@@ -284,8 +311,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  async function loadLogFeed() {
-    logFeedContainer.innerHTML = '<div class="empty-feed"><span class="spinner-lg"></span><p style="margin-top:12px">Memuat data log...</p></div>';
+  async function loadLogFeed(isBackgroundRefresh = false) {
+    if (!isBackgroundRefresh) {
+      logFeedContainer.innerHTML = '<div class="empty-feed"><span class="spinner-lg"></span><p style="margin-top:12px">Memuat data log...</p></div>';
+    }
 
     const query = encodeURIComponent(searchInput.value.trim());
     const panjangParam = activePanjangFilter !== 'all' ? `&panjang=${encodeURIComponent(activePanjangFilter)}` : '';
@@ -322,7 +351,9 @@ document.addEventListener('DOMContentLoaded', () => {
       attachCardEvents();
     } catch (err) {
       console.error('[Feed Error]', err);
-      logFeedContainer.innerHTML = `<div class="empty-feed"><p style="color:#dc2626">Gagal memuat data: ${err.message}</p></div>`;
+      if (!isBackgroundRefresh) {
+        logFeedContainer.innerHTML = `<div class="empty-feed"><p style="color:#dc2626">Gagal memuat data: ${err.message}</p></div>`;
+      }
     }
   }
 
@@ -350,7 +381,23 @@ document.addEventListener('DOMContentLoaded', () => {
       markingSPill = `<div class="marking-s-pill-row"><span class="marking-s-pill">⚠️ Cacat S: ${markingS.total_s} btg</span></div>`;
     }
 
-    const badgeClass = row.status_verifikasi === 'auto' ? 'badge-auto' : (row.status_verifikasi === 'edited' ? 'badge-edited' : 'badge-manual');
+    let badgeClass = 'badge-manual';
+    let badgeText = row.status_verifikasi || 'manual';
+
+    if (row.status_verifikasi === 'processing') {
+      badgeClass = 'badge-processing';
+      badgeText = '⏳ PROSES AI...';
+    } else if (row.status_verifikasi === 'auto') {
+      badgeClass = 'badge-auto';
+      badgeText = '✅ AUTO AI';
+    } else if (row.status_verifikasi === 'edited') {
+      badgeClass = 'badge-edited';
+      badgeText = '✏️ EDITED';
+    } else if (row.status_verifikasi === 'failed') {
+      badgeClass = 'badge-failed';
+      badgeText = '⚠️ GAGAL AI (ISI MANUAL)';
+    }
+
     const panjangText = row.panjang_log || '260 CM';
 
     return `
@@ -372,7 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ${markingSPill}
 
         <div class="card-footer-row">
-          <span class="badge-status ${badgeClass}">${row.status_verifikasi || 'manual'}</span>
+          <span class="badge-status ${badgeClass}">${badgeText}</span>
           <div class="card-actions">
             ${row.foto_path ? `<button class="btn-card-action btn-view-photo" data-foto="${row.foto_path}">📷 Foto</button>` : ''}
             <button class="btn-card-action btn-edit-matrix">📊 Detail Form</button>
@@ -407,8 +454,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     matrixModalSap.textContent = logData.no_lapen || '-';
     matrixModalNopol.textContent = logData.no_kendaraan || '-';
-    editSapInput.value = logData.no_lapen || '';
-    editNopolInput.value = logData.no_kendaraan || '';
+    editSapInput.value = logData.no_lapen === 'MEMPROSES...' ? '' : (logData.no_lapen || '');
+    editNopolInput.value = logData.no_kendaraan === 'PROSES AI' ? '' : (logData.no_kendaraan || '');
     editPanjangInput.value = logData.panjang_log || '260 CM';
 
     // Set Marking S inputs
@@ -419,14 +466,12 @@ document.addEventListener('DOMContentLoaded', () => {
     msMata.value = currentMarkingS.mata_kayu || 0;
     updateMarkingSTotalDisplay();
 
-    // Show/hide view photo button in modal footer
     if (logData.foto_path) {
       modalViewPhotoBtn.style.display = 'inline-flex';
     } else {
       modalViewPhotoBtn.style.display = 'none';
     }
 
-    // Default tab
     switchTab('diameter');
     renderMatrixGrid();
     matrixModal.style.display = 'flex';
@@ -484,7 +529,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let calculatedTotal = 0;
 
-    // Range Ø 10 to Ø 60 cm
     for (let d = 10; d <= 60; d++) {
       const qty = qtyMap[d] || 0;
       calculatedTotal += qty;
@@ -516,7 +560,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     matrixTotalDisplay.textContent = calculatedTotal;
 
-    // Attach +/- buttons & input handlers
     diameterMatrixGrid.querySelectorAll('.btn-minus').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -709,4 +752,5 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial Load
   updateOnlineStatus();
   loadLogFeed();
+  startQueuePolling();
 });

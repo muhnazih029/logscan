@@ -62,15 +62,15 @@ async function extractWithGemini(imagePath) {
   const imagePart = fileToGenerativePart(fullPath);
 
   const prompt = `
-Kamu adalah sistem AI Visi Komputer industri perkayuan PT Sumber Graha Sejahtera (Sampoerna Kayoe).
-Analisis foto dokumen form checking ulang log kayu ini dan ekstrak data berikut ke dalam format JSON murni TANPA markdown/backticks/teks tambahan:
+Kamu adalah sistem Visi AI presisi tinggi untuk pabrik kayu lapis PT SUMBER GRAHA SEJAHTERA (Sampoerna Kayoe).
+Analisis foto dokumen fisik "FORM CHECKING ULANG PANJANG LOG" ini dan ekstrak data ke dalam format JSON murni TANPA markdown/backticks/teks tambahan:
 
 {
   "no_lapen": "9393",
   "no_kendaraan": "AA 8979 IB",
   "panjang_log": "260 CM",
-  "block": "B.16",
-  "nama_checker": "Zain",
+  "block": "D.16",
+  "nama_checker": "Aris Zain",
   "tanggal": "2026-08-15",
   "diameter_detail": [
     {"d": 25, "qty": 5},
@@ -84,30 +84,33 @@ Analisis foto dokumen form checking ulang log kayu ini dan ekstrak data berikut 
     {"d": 33, "qty": 3}
   ],
   "marking_s": {
-    "pecah": 2,
-    "lapuk": 3,
+    "pecah": 1,
+    "lapuk": 2,
     "bengkok": 1,
     "bontos_ganda": 1,
     "mata_kayu": 1,
-    "total_s": 7
+    "total_s": 6
   },
   "total": 36
 }
 
-PETUNJUK SANGAT PENTING:
-1. "no_lapen": Ambil angka di kolom "NO SAP" / "NO LAPEN" (contoh: 9393).
-2. "no_kendaraan": Ambil nomor polisi mobil (contoh: AA 8979 IB).
-3. "panjang_log": Cek judul/header form, apakah "PANJANG LOG 260 CM", "PANJANG LOG 130 CM", atau angka panjang lainnya (default: "260 CM").
-4. "block": Ambil kode block jika ada (contoh: B.16).
-5. "diameter_detail": PERHATIKAN TABEL GRADE / DIAMETER Ø (ukuran diameter berkisar 10 cm sampai 60 cm).
-   - Periksa setiap baris diameter Ø.
-   - Hitung turus (tally marks ||||) ATAU angka jumlah batang kayu di sebelah kanan baris diameter tersebut.
+PETUNJUK ANALISIS VISUAL PRESISI:
+1. "no_lapen": Ambil angka di kotak "NO SAP" / "NO LAPEN" (contoh: 9393).
+2. "no_kendaraan": Ambil nomor polisi mobil di kotak "NO MOBIL" (contoh: AA 8979 IB).
+3. "panjang_log": Cek judul form di kanan atas, apakah "PANJANG LOG 260 CM" atau "PANJANG LOG 130 CM" (default: "260 CM").
+4. "block": Ambil kode block jika ada (contoh: D.16 atau B.16).
+5. "nama_checker": Ambil nama checker jika ada (contoh: Aris Zain).
+6. "diameter_detail" (TABEL GRADE A / KIRI):
+   - Periksa tabel kolom GRADE A di sebelah kiri.
+   - Baca turus (tally marks ||||) ATAU angka jumlah di kolom "JML" di sebelah kanan baris diameter Ø.
    - Masukkan ke array "diameter_detail" hanya untuk diameter yang qty-nya > 0.
-6. "marking_s": PERHATIKAN TABEL ACTUAL / MARKING "S" (Cacat Kayu: PECAH, LAPUK, BENGKOK, BONTOS GANDA, MATA KAYU).
-   - Hitung jumlah batang per jenis cacat di tabel MARKING "S".
-   - "total_s" adalah total keseluruhan cacat kayu "S".
-7. "total": Total keseluruhan jumlah batang log kayu. Ambil angka di bagian TOTAL atau hitung total dari diameter_detail.
-8. HANYA kembalikan JSON murni.
+7. "marking_s" (TABEL ACTUAL / MARKING "S" / KANAN):
+   - Perhatikan tabel di bagian kanan berjudul "ACTUAL MARKING S".
+   - Tabel ini terdiri dari sub-kolom cacat kayu: PECAH, LAPUK, BENGKOK, BONTOS GANDA, MATA KAYU.
+   - Cek setiap tulisan turus ||| atau angka jumlah batang di bawah masing-masing kolom cacat kayu tersebut (misalnya ada 1 turus di PECAH -> pecah: 1, ada 2 turus di LAPUK -> lapuk: 2, dst).
+   - "total_s" adalah penjumlahan dari pecah + lapuk + bengkok + bontos_ganda + mata_kayu.
+8. "total": Total keseluruhan jumlah batang log kayu Grade A. Ambil angka di bagian TOTAL atau hitung total dari diameter_detail.
+9. HANYA kembalikan JSON murni.
 `;
 
   // Try available Gemini Flash model candidates

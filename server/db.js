@@ -35,6 +35,7 @@ function initDb() {
     CREATE INDEX IF NOT EXISTS idx_no_lapen ON form_logs(no_lapen);
     CREATE INDEX IF NOT EXISTS idx_no_kendaraan ON form_logs(no_kendaraan);
     CREATE INDEX IF NOT EXISTS idx_tanggal ON form_logs(tanggal);
+    CREATE INDEX IF NOT EXISTS idx_status_verifikasi ON form_logs(status_verifikasi);
   `);
 
   // Migration check: add missing columns if needed

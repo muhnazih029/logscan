@@ -435,6 +435,18 @@ body {
 .badge-auto { background: #dcfce7; color: #15803d; }
 .badge-manual { background: #e0f2fe; color: #0369a1; }
 .badge-edited { background: #fef3c7; color: #b45309; }
+.badge-failed { background: #fee2e2; color: #991b1b; }
+.badge-processing {
+  background: var(--sampoerna-gold-100);
+  color: #854d0e;
+  border: 1px solid var(--sampoerna-gold-500);
+  animation: pulseBadge 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes pulseBadge {
+  from { opacity: 0.6; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
 
 .card-actions {
   display: flex;

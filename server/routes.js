@@ -1,3 +1,7 @@
+/**
+ * Express REST API Routes for LogScan.
+ */
+
 const express = require('express');
 const router = express.Router();
 const path = require('path');
@@ -10,7 +14,7 @@ const { extractWithGemini } = require('./gemini');
 
 const logService = new LogService(db);
 
-// Multer storage configuration
+// Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -44,12 +48,74 @@ router.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     app: 'LogScan API',
-    version: '0.2.0',
+    version: '0.3.0',
     timestamp: new Date().toISOString()
   });
 });
 
-// POST /api/upload - Upload form photo and process with Gemini AI (fallback to Tesseract OCR)
+// GET /api/processing-count - Returns count of background AI tasks processing
+router.get('/processing-count', (req, res) => {
+  try {
+    const row = db.prepare("SELECT COUNT(*) as count FROM form_logs WHERE status_verifikasi = 'processing'").get();
+    res.json({ success: true, processingCount: row ? row.count : 0 });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * Async Background AI Extraction Task
+ */
+async function processBackgroundExtraction(logId, filePath) {
+  try {
+    console.log(`[Background AI] Starting extraction for log #${logId}...`);
+    let extractionResult = null;
+    let engineUsed = 'none';
+
+    // 1. Try Gemini Vision AI first
+    if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here') {
+      try {
+        console.log(`[Background AI] Running Gemini AI for #${logId}...`);
+        extractionResult = await extractWithGemini(filePath);
+        engineUsed = 'gemini';
+      } catch (geminiErr) {
+        console.warn(`[Background AI] Gemini AI failed for #${logId}:`, geminiErr.message);
+      }
+    }
+
+    // 2. Fallback to Tesseract OCR if Gemini failed or unconfigured
+    if (!extractionResult) {
+      try {
+        console.log(`[Background AI] Running Tesseract OCR fallback for #${logId}...`);
+        extractionResult = await extractFromImage(filePath);
+        engineUsed = 'ocr';
+      } catch (ocrErr) {
+        console.warn(`[Background AI] Tesseract OCR failed for #${logId}:`, ocrErr.message);
+      }
+    }
+
+    // 3. Save extracted fields to DB
+    if (extractionResult && extractionResult.fields) {
+      logService.updateLog(logId, {
+        ...extractionResult.fields,
+        confidence_score: extractionResult.confidence || 0.95,
+        status_verifikasi: 'auto'
+      });
+      console.log(`[Background AI] Log #${logId} extracted via ${engineUsed} and updated to 'auto' ✅`);
+    } else {
+      // Mark as failed but keep image for manual entry
+      logService.updateLog(logId, {
+        status_verifikasi: 'failed'
+      });
+      console.warn(`[Background AI] Extraction failed for #${logId}. Saved as 'failed' for manual entry.`);
+    }
+  } catch (err) {
+    console.error(`[Background AI Exception] Log #${logId}:`, err.message);
+    logService.updateLog(logId, { status_verifikasi: 'failed' });
+  }
+}
+
+// POST /api/upload - Instant Upload & Non-blocking Background Queue Processing
 router.post('/upload', upload.single('foto'), async (req, res) => {
   try {
     if (!req.file) {
@@ -57,72 +123,30 @@ router.post('/upload', upload.single('foto'), async (req, res) => {
     }
 
     const relativePath = path.relative(path.join(__dirname, '../'), req.file.path);
-    console.log(`[Upload] Processing photo: ${relativePath}`);
+    console.log(`[Upload] Image saved: ${relativePath}`);
 
-    let extractionResult = null;
-    let engineUsed = 'ocr';
+    // Create record immediately with status 'processing'
+    const createdLog = logService.createLog({
+      foto_path: relativePath,
+      no_lapen: 'MEMPROSES...',
+      no_kendaraan: 'PROSES AI',
+      status_verifikasi: 'processing',
+      confidence_score: 0.0
+    });
 
-    // 1. Try Gemini Vision AI first if API key configured
-    if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here') {
-      try {
-        console.log('[Upload] Running Gemini Vision AI extraction...');
-        extractionResult = await extractWithGemini(req.file.path);
-        engineUsed = 'gemini';
-      } catch (geminiErr) {
-        console.warn('[Upload] Gemini AI extraction failed or unavailable, falling back to local OCR:', geminiErr.message);
-      }
-    }
+    // Return instant HTTP 200 response to client (<100ms)
+    res.json({
+      success: true,
+      status: 'processing',
+      message: 'Foto berhasil diunggah! AI sedang memproses di latar belakang ⏳',
+      data: createdLog
+    });
 
-    // 2. Fallback to Tesseract OCR if Gemini failed or key missing
-    if (!extractionResult) {
-      console.log('[Upload] Running Tesseract OCR fallback...');
-      try {
-        extractionResult = await extractFromImage(req.file.path);
-        engineUsed = 'ocr';
-      } catch (ocrErr) {
-        console.error('[Upload] OCR failed:', ocrErr.message);
-        extractionResult = {
-          fields: { no_lapen: null, no_kendaraan: null, block: null, total: null, diameter_detail: [] },
-          rawText: '',
-          confidence: 0
-        };
-      }
-    }
+    // Fire & forget async background extraction (does not block HTTP response)
+    setImmediate(() => {
+      processBackgroundExtraction(createdLog.id, req.file.path);
+    });
 
-    const { fields, confidence, rawText } = extractionResult;
-
-    // Confidence routing: >= 0.85 auto-save, < 0.85 return pending for review
-    if (confidence >= 0.85) {
-      const createdLog = logService.createLog({
-        ...fields,
-        foto_path: relativePath,
-        confidence_score: confidence,
-        status_verifikasi: 'auto'
-      });
-
-      return res.json({
-        success: true,
-        status: 'auto',
-        engine: engineUsed,
-        message: `Data form log berhasil diekstrak via ${engineUsed === 'gemini' ? 'Gemini AI' : 'OCR'} dan disimpan otomatis ✅`,
-        data: createdLog,
-        confidence
-      });
-    } else {
-      return res.json({
-        success: true,
-        status: 'pending',
-        engine: engineUsed,
-        message: 'Data berhasil dibaca tetapi memerlukan konfirmasi Anda',
-        data: {
-          ...fields,
-          foto_path: relativePath,
-          confidence_score: confidence
-        },
-        confidence,
-        rawText
-      });
-    }
   } catch (err) {
     console.error('[Upload Error]', err);
     res.status(500).json({ success: false, error: err.message });
@@ -163,10 +187,8 @@ router.get('/logs/:id/foto', (req, res) => {
     if (!log || !log.foto_path) {
       return res.status(404).json({ success: false, error: 'Foto tidak ditemukan' });
     }
-    const fullPath = path.isAbsolute(log.foto_path)
-      ? log.foto_path
-      : path.join(__dirname, '../', log.foto_path);
 
+    const fullPath = path.join(__dirname, '../', log.foto_path);
     if (!fs.existsSync(fullPath)) {
       return res.status(404).json({ success: false, error: 'File foto tidak ada di server' });
     }
@@ -177,36 +199,28 @@ router.get('/logs/:id/foto', (req, res) => {
   }
 });
 
-// POST /api/logs - Create log entry manually
+// POST /api/logs - Create manual log entry
 router.post('/logs', (req, res) => {
   try {
-    const createdLog = logService.createLog(req.body);
-    res.status(201).json({
-      success: true,
-      message: 'Log berhasil disimpan',
-      data: createdLog
-    });
+    const created = logService.createLog(req.body);
+    res.status(201).json({ success: true, data: created });
   } catch (err) {
     console.error('[API] Error POST /logs:', err);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(400).json({ success: false, error: err.message });
   }
 });
 
-// PUT /api/logs/:id - Update log entry (Inline editing)
+// PUT /api/logs/:id - Update log entry
 router.put('/logs/:id', (req, res) => {
   try {
-    const updatedLog = logService.updateLog(req.params.id, req.body);
-    if (!updatedLog) {
+    const updated = logService.updateLog(req.params.id, req.body);
+    if (!updated) {
       return res.status(404).json({ success: false, error: 'Data tidak ditemukan' });
     }
-    res.json({
-      success: true,
-      message: 'Log berhasil diperbarui',
-      data: updatedLog
-    });
+    res.json({ success: true, data: updated });
   } catch (err) {
     console.error('[API] Error PUT /logs:', err);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(400).json({ success: false, error: err.message });
   }
 });
 
@@ -219,6 +233,7 @@ router.delete('/logs/:id', (req, res) => {
     }
     res.json({ success: true, message: 'Data berhasil dihapus' });
   } catch (err) {
+    console.error('[API] Error DELETE /logs:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
