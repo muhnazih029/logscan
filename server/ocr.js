@@ -19,12 +19,63 @@ async function preprocessImage(inputPath) {
 
   await sharp(inputPath)
     .rotate() // Auto-orient based on EXIF
-    .grayscale() // Convert to grayscale
-    .linear(1.2, -10) // Increase contrast slightly
-    .threshold(140) // Binarization / thresholding for crisp text
+    .grayscale()
+    .linear(1.2, -10)
+    .threshold(140)
     .toFile(tempPath);
 
   return tempPath;
+}
+
+/**
+ * Fast Header ROI (Region of Interest) local OCR extraction.
+ * Crops top-left header area containing NO SAP / LAPEN and NO MOBIL for instant <300ms detection.
+ * @param {string} imagePath 
+ * @returns {Promise<{ no_lapen: string|null, no_kendaraan: string|null }>}
+ */
+async function extractHeaderROI(imagePath) {
+  let tempPath = null;
+  let worker = null;
+
+  try {
+    const fullPath = path.isAbsolute(imagePath)
+      ? imagePath
+      : path.join(__dirname, '../', imagePath);
+
+    if (!fs.existsSync(fullPath)) return { no_lapen: null, no_kendaraan: null };
+
+    // Crop top-left 60% width and 35% height header region
+    const metadata = await sharp(fullPath).metadata();
+    const cropWidth = Math.round((metadata.width || 1000) * 0.65);
+    const cropHeight = Math.round((metadata.height || 1000) * 0.35);
+
+    tempPath = path.join(path.dirname(fullPath), `header_${Date.now()}_${path.basename(fullPath)}`);
+
+    await sharp(fullPath)
+      .rotate()
+      .extract({ left: 0, top: 0, width: cropWidth, height: cropHeight })
+      .grayscale()
+      .linear(1.3, -15)
+      .threshold(135)
+      .toFile(tempPath);
+
+    worker = await createWorker('ind+eng');
+    const { data: { text } } = await worker.recognize(tempPath);
+    const fields = parseOCROutput(text);
+
+    return {
+      no_lapen: fields.no_lapen || null,
+      no_kendaraan: fields.no_kendaraan || null
+    };
+  } catch (err) {
+    console.warn('[Header ROI OCR Error]', err.message);
+    return { no_lapen: null, no_kendaraan: null };
+  } finally {
+    if (worker) await worker.terminate();
+    if (tempPath && fs.existsSync(tempPath)) {
+      try { fs.unlinkSync(tempPath); } catch (e) {}
+    }
+  }
 }
 
 /**
@@ -45,19 +96,11 @@ async function extractFromImage(imagePath) {
       throw new Error(`File foto tidak ditemukan: ${imagePath}`);
     }
 
-    // Step 1: Preprocess image with Sharp
     tempPath = await preprocessImage(fullPath);
+    worker = await createWorker('ind+eng');
 
-    // Step 2: Initialize Tesseract worker
-    worker = await createWorker('ind+eng'); // Indonesian & English languages
-
-    // Step 3: Recognize text
     const { data: { text, confidence: rawConfidence } } = await worker.recognize(tempPath);
-
-    // Step 4: Parse structured fields
     const fields = parseOCROutput(text);
-
-    // Step 5: Calculate overall confidence score
     const finalConfidence = calculateConfidence(fields, rawConfidence);
 
     return {
@@ -70,22 +113,15 @@ async function extractFromImage(imagePath) {
     console.error('[OCR Error]', err.message);
     throw err;
   } finally {
-    // Cleanup worker
-    if (worker) {
-      await worker.terminate();
-    }
-    // Cleanup temporary preprocessed image
+    if (worker) await worker.terminate();
     if (tempPath && fs.existsSync(tempPath)) {
-      try {
-        fs.unlinkSync(tempPath);
-      } catch (e) {
-        // ignore cleanup error
-      }
+      try { fs.unlinkSync(tempPath); } catch (e) {}
     }
   }
 }
 
 module.exports = {
   preprocessImage,
+  extractHeaderROI,
   extractFromImage
 };

@@ -696,7 +696,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // --- 6. Fullscreen Landscape Photo Viewer ---
+  // --- 6. Fullscreen Landscape Photo Viewer (360 Rotation & Touch Zoom) ---
+  let photoRotationAngle = 0;
+  let photoZoomScale = 1.0;
+  let initialPinchDistance = 0;
+  let initialZoomScale = 1.0;
+
   function openPhotoModal(fotoPath, sapTitle) {
     if (!fotoPath) {
       showToast('Foto tidak tersedia', 'warning');
@@ -704,14 +709,60 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const fullSrc = fotoPath.startsWith('/') ? fotoPath : `/${fotoPath}`;
     modalPhotoImage.src = fullSrc;
-    modalPhotoImage.classList.remove('rotated-landscape');
+    photoRotationAngle = 0;
+    photoZoomScale = 1.0;
+    applyPhotoTransform();
     fullscreenPhotoTitle.textContent = `Foto Form Fisik (SAP: ${sapTitle || '-'})`;
     photoModal.style.display = 'flex';
   }
 
+  function applyPhotoTransform() {
+    modalPhotoImage.style.transform = `rotate(${photoRotationAngle}deg) scale(${photoZoomScale})`;
+    modalPhotoImage.style.transition = 'transform 0.25s ease';
+  }
+
   rotatePhotoBtn.addEventListener('click', () => {
-    modalPhotoImage.classList.toggle('rotated-landscape');
+    photoRotationAngle = (photoRotationAngle + 90) % 360;
+    applyPhotoTransform();
   });
+
+  // Double tap / double click to toggle zoom (1.0x vs 2.2x)
+  modalPhotoImage.addEventListener('dblclick', () => {
+    photoZoomScale = photoZoomScale > 1.2 ? 1.0 : 2.2;
+    applyPhotoTransform();
+  });
+
+  // 2-Finger Touch Pinch-to-Zoom
+  const photoContainer = document.querySelector('.fullscreen-photo-container');
+  
+  photoContainer.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      initialPinchDistance = getTouchDistance(e.touches);
+      initialZoomScale = photoZoomScale;
+    }
+  });
+
+  photoContainer.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2 && initialPinchDistance > 0) {
+      e.preventDefault();
+      const currentDistance = getTouchDistance(e.touches);
+      const zoomFactor = currentDistance / initialPinchDistance;
+      photoZoomScale = Math.min(4.0, Math.max(0.8, initialZoomScale * zoomFactor));
+      applyPhotoTransform();
+    }
+  });
+
+  photoContainer.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) {
+      initialPinchDistance = 0;
+    }
+  });
+
+  function getTouchDistance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
 
   closePhotoModalBtn.addEventListener('click', () => {
     photoModal.style.display = 'none';

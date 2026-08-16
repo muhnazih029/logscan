@@ -8,6 +8,8 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const { extractFromImage, extractHeaderROI } = require('./ocr');
+const { extractWithGemini } = require('./gemini');
 const { getDb } = require('./db');
 const LogService = require('./services/logService');
 const AIProcessingQueue = require('./services/queueService');
@@ -65,7 +67,7 @@ router.get('/processing-count', async (req, res) => {
   }
 });
 
-// POST /api/upload - Instant Upload & Async Queue Processing
+// POST /api/upload - Instant Upload & Header ROI Fast OCR
 router.post('/upload', upload.single('foto'), async (req, res) => {
   try {
     if (!req.file) {
@@ -75,11 +77,19 @@ router.post('/upload', upload.single('foto'), async (req, res) => {
     const relativePath = path.relative(path.join(__dirname, '../'), req.file.path);
     console.log(`[Upload] Image saved: ${relativePath}`);
 
+    // Fast Header ROI OCR (<300ms) for instant SAP & Nopol detection
+    let headerInfo = { no_lapen: null, no_kendaraan: null };
+    try {
+      headerInfo = await extractHeaderROI(req.file.path);
+    } catch (e) {
+      console.warn('[Upload Header ROI]', e.message);
+    }
+
     // Create record immediately in Async SQLite with status 'processing'
     const createdLog = await logService.createLog({
       foto_path: relativePath,
-      no_lapen: 'MEMPROSES...',
-      no_kendaraan: 'PROSES AI',
+      no_lapen: headerInfo.no_lapen || 'MEMPROSES...',
+      no_kendaraan: headerInfo.no_kendaraan || 'PROSES AI',
       status_verifikasi: 'processing',
       confidence_score: 0.0
     });
