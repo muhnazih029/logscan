@@ -371,6 +371,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (diameterDetails.length > 4) {
         pillsHtml += `<span class="dia-pill">+${diameterDetails.length - 4} lagi</span>`;
       }
+    } else if (row.status_verifikasi === 'processing') {
+      pillsHtml = '<span class="dia-pill" style="color:#d97706">⚡ AI sedang mengekstrak matriks diameter...</span>';
     } else {
       pillsHtml = '<span class="dia-pill" style="color:#94a3b8">Belum ada rincian diameter</span>';
     }
@@ -378,7 +380,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Marking S Pill tag if total_s > 0
     let markingSPill = '';
     if (markingS.total_s > 0) {
-      markingSPill = `<div class="marking-s-pill-row"><span class="marking-s-pill">⚠️ Cacat S: ${markingS.total_s} btg</span></div>`;
+      let detailSnippet = '';
+      if (Array.isArray(markingS.details) && markingS.details.length > 0) {
+        detailSnippet = ' (' + markingS.details.map(d => `Ø${d.d} ${d.jenis}: ${d.qty}`).join(', ') + ')';
+      }
+      markingSPill = `<div class="marking-s-pill-row"><span class="marking-s-pill">⚠️ Cacat S: ${markingS.total_s} btg${escapeHtml(detailSnippet)}</span></div>`;
     }
 
     let badgeClass = 'badge-manual';
@@ -386,7 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (row.status_verifikasi === 'processing') {
       badgeClass = 'badge-processing';
-      badgeText = '⏳ PROSES AI...';
+      badgeText = '⚡ EKSTRAKSI AI...';
     } else if (row.status_verifikasi === 'auto') {
       badgeClass = 'badge-auto';
       badgeText = '✅ AUTO AI';
@@ -398,13 +404,15 @@ document.addEventListener('DOMContentLoaded', () => {
       badgeText = '⚠️ GAGAL AI (ISI MANUAL)';
     }
 
+    const sapDisplay = (row.no_lapen && row.no_lapen !== 'MEMPROSES...') ? row.no_lapen : 'Scanning...';
+    const nopolDisplay = (row.no_kendaraan && row.no_kendaraan !== 'PROSES AI') ? row.no_kendaraan : 'Mobil...';
     const panjangText = row.panjang_log || '260 CM';
 
     return `
       <div class="form-card" data-id="${row.id}" data-json='${escapeHtml(JSON.stringify(row))}'>
         <div class="card-top-row">
-          <div class="sap-number">No. SAP: ${escapeHtml(row.no_lapen || '-')}</div>
-          <div class="nopol-tag">${escapeHtml(row.no_kendaraan || 'No Mobil -')}</div>
+          <div class="sap-number">No. SAP: ${escapeHtml(sapDisplay)}</div>
+          <div class="nopol-tag">${escapeHtml(nopolDisplay)}</div>
         </div>
 
         <div class="card-main-stat">

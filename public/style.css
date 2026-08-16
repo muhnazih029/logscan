@@ -688,6 +688,55 @@ body {
   border-bottom-color: var(--sampoerna-red-900);
 }
 
+/* Pagination Footer (Agency Grade Redesign) */
+.pagination-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 4px;
+  margin-top: 20px;
+  background: #ffffff;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-outer);
+  box-shadow: 0 4px 12px rgba(28, 25, 23, 0.03);
+}
+
+#paginationInfo {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-main);
+  padding-left: 14px;
+}
+
+.pagination-buttons {
+  display: flex;
+  gap: 8px;
+  padding-right: 10px;
+}
+
+.btn-page {
+  padding: 8px 16px;
+  background: #f5f5f4;
+  border: 1px solid #d6d3d1;
+  color: var(--text-main);
+  border-radius: var(--radius-inner);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-page:hover:not(:disabled) {
+  background: var(--sampoerna-olive-800);
+  color: #ffffff;
+  border-color: var(--sampoerna-olive-900);
+}
+
+.btn-page:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* Diameter Matrix Header & Filter Toggle */
 .matrix-section-header {
   display: flex;

@@ -16,6 +16,17 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Structured HTTP Request Logger Middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const timeStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    console.log(`[${timeStr}] ${req.method} ${req.originalUrl} -> ${res.statusCode} (${duration}ms)`);
+  });
+  next();
+});
+
 // Disable browser caching for PWA Service Worker & App Shell to ensure instant updates
 app.use((req, res, next) => {
   if (req.url.endsWith('sw.js') || req.url === '/' || req.url.endsWith('.html')) {

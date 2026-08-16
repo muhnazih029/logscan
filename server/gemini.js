@@ -86,10 +86,14 @@ Analisis foto dokumen fisik "FORM CHECKING ULANG PANJANG LOG" ini dan ekstrak da
   "marking_s": {
     "pecah": 1,
     "lapuk": 2,
-    "bengkok": 1,
-    "bontos_ganda": 1,
-    "mata_kayu": 1,
-    "total_s": 6
+    "bengkok": 0,
+    "bontos_ganda": 0,
+    "mata_kayu": 0,
+    "total_s": 3,
+    "details": [
+      {"d": 28, "jenis": "pecah", "qty": 1},
+      {"d": 30, "jenis": "lapuk", "qty": 2}
+    ]
   },
   "total": 36
 }
@@ -99,17 +103,13 @@ PETUNJUK ANALISIS VISUAL PRESISI:
 2. "no_kendaraan": Ambil nomor polisi mobil di kotak "NO MOBIL" (contoh: AA 8979 IB).
 3. "panjang_log": Cek judul form di kanan atas, apakah "PANJANG LOG 260 CM" atau "PANJANG LOG 130 CM" (default: "260 CM").
 4. "block": Ambil kode block jika ada (contoh: D.16 atau B.16).
-5. "nama_checker": Ambil nama checker jika ada (contoh: Aris Zain).
+5. "nama_checker": Ambil nama checker jika ada.
 6. "diameter_detail" (TABEL GRADE A / KIRI):
-   - Periksa tabel kolom GRADE A di sebelah kiri.
-   - Baca turus (tally marks ||||) ATAU angka jumlah di kolom "JML" di sebelah kanan baris diameter Ø.
-   - Masukkan ke array "diameter_detail" hanya untuk diameter yang qty-nya > 0.
+   - Baca turus (||||) atau angka jumlah di kolom JML sebelah kanan baris diameter Ø.
 7. "marking_s" (TABEL ACTUAL / MARKING "S" / KANAN):
-   - Perhatikan tabel di bagian kanan berjudul "ACTUAL MARKING S".
-   - Tabel ini terdiri dari sub-kolom cacat kayu: PECAH, LAPUK, BENGKOK, BONTOS GANDA, MATA KAYU.
-   - Cek setiap tulisan turus ||| atau angka jumlah batang di bawah masing-masing kolom cacat kayu tersebut (misalnya ada 1 turus di PECAH -> pecah: 1, ada 2 turus di LAPUK -> lapuk: 2, dst).
-   - "total_s" adalah penjumlahan dari pecah + lapuk + bengkok + bontos_ganda + mata_kayu.
-8. "total": Total keseluruhan jumlah batang log kayu Grade A. Ambil angka di bagian TOTAL atau hitung total dari diameter_detail.
+   - Baca kolom PECAH, LAPUK, BENGKOK, BONTOS GANDA, MATA KAYU per diameter Ø.
+   - Cantumkan total ringkasan dan rincian per diameter di array "details" jika ada cacat kayu "S".
+8. "total": Total keseluruhan jumlah batang log kayu Grade A.
 9. HANYA kembalikan JSON murni.
 `;
 
@@ -166,7 +166,8 @@ PETUNJUK ANALISIS VISUAL PRESISI:
     bengkok: parseInt(msRaw.bengkok, 10) || 0,
     bontos_ganda: parseInt(msRaw.bontos_ganda || msRaw.bontos, 10) || 0,
     mata_kayu: parseInt(msRaw.mata_kayu, 10) || 0,
-    total_s: parseInt(msRaw.total_s || msRaw.total, 10) || 0
+    total_s: parseInt(msRaw.total_s || msRaw.total, 10) || 0,
+    details: Array.isArray(msRaw.details) ? msRaw.details : []
   };
 
   if (marking_s.total_s === 0) {
