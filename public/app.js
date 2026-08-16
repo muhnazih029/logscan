@@ -476,37 +476,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- 5. Detail Modal (Diameter Matrix & Marking S Tabs) ---
   function openMatrixModal(logData) {
+    if (!logData) return;
     activeLogData = logData;
-    currentDiameterDetail = Array.isArray(logData.diameter_detail) ? [...logData.diameter_detail] : [];
-    currentMarkingS = logData.marking_s || { pecah: 0, lapuk: 0, bengkok: 0, bontos_ganda: 0, mata_kayu: 0, total_s: 0 };
 
-    matrixModalSap.textContent = logData.no_lapen || '-';
-    matrixModalNopol.textContent = logData.no_kendaraan || '-';
-    editSapInput.value = logData.no_lapen === 'MEMPROSES...' ? '' : (logData.no_lapen || '');
-    editNopolInput.value = logData.no_kendaraan === 'PROSES AI' ? '' : (logData.no_kendaraan || '');
-    editPanjangInput.value = logData.panjang_log || '260 CM';
+    // Parse diameter_detail if it's a JSON string from SQLite
+    let diameterDetail = logData.diameter_detail;
+    if (typeof diameterDetail === 'string') {
+      try { diameterDetail = JSON.parse(diameterDetail); } catch (e) { diameterDetail = []; }
+    }
+    currentDiameterDetail = Array.isArray(diameterDetail) ? [...diameterDetail] : [];
 
-    // Set Marking S inputs & details
-    msPecah.value = currentMarkingS.pecah || 0;
-    msLapuk.value = currentMarkingS.lapuk || 0;
-    msBengkok.value = currentMarkingS.bengkok || 0;
-    msBontos.value = currentMarkingS.bontos_ganda || 0;
-    msMata.value = currentMarkingS.mata_kayu || 0;
+    // Parse marking_s if it's a JSON string from SQLite
+    let markingS = logData.marking_s;
+    if (typeof markingS === 'string') {
+      try { markingS = JSON.parse(markingS); } catch (e) { markingS = {}; }
+    }
+    currentMarkingS = (markingS && typeof markingS === 'object')
+      ? { ...markingS }
+      : { pecah: 0, lapuk: 0, bengkok: 0, bontos_ganda: 0, mata_kayu: 0, total_s: 0 };
+
     if (!Array.isArray(currentMarkingS.details)) {
       currentMarkingS.details = [];
     }
+
+    if (matrixModalSap) matrixModalSap.textContent = logData.no_lapen || '-';
+    if (matrixModalNopol) matrixModalNopol.textContent = logData.no_kendaraan || '-';
+    if (editSapInput) editSapInput.value = (logData.no_lapen === 'MEMPROSES...' || logData.no_lapen === 'Merekam SAP...') ? '' : (logData.no_lapen || '');
+    if (editNopolInput) editNopolInput.value = (logData.no_kendaraan === 'PROSES AI' || logData.no_kendaraan === 'Nopol...') ? '' : (logData.no_kendaraan || '');
+    if (editPanjangInput) editPanjangInput.value = logData.panjang_log || '260 CM';
+
+    // Set Marking S inputs & details
+    if (msPecah) msPecah.value = currentMarkingS.pecah || 0;
+    if (msLapuk) msLapuk.value = currentMarkingS.lapuk || 0;
+    if (msBengkok) msBengkok.value = currentMarkingS.bengkok || 0;
+    if (msBontos) msBontos.value = currentMarkingS.bontos_ganda || 0;
+    if (msMata) msMata.value = currentMarkingS.mata_kayu || 0;
+
     updateMarkingSTotalDisplay();
     switchMarkingSCategory('all');
 
-    if (logData.foto_path) {
+    if (logData.foto_path && modalViewPhotoBtn) {
       modalViewPhotoBtn.style.display = 'inline-flex';
-    } else {
+    } else if (modalViewPhotoBtn) {
       modalViewPhotoBtn.style.display = 'none';
     }
 
     switchTab('diameter');
     renderMatrixGrid();
-    matrixModal.style.display = 'flex';
+    if (matrixModal) matrixModal.style.display = 'flex';
   }
 
   // Tab Switching
