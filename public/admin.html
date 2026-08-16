@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LogScan Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css?v=3.5.0">
+  <style>
+    body {
+      background-color: var(--sampoerna-cream-50);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .admin-card {
+      background: #ffffff;
+      border-radius: var(--radius-outer);
+      border: 1px solid var(--border-hairline);
+      box-shadow: 0 12px 32px rgba(28, 25, 23, 0.08);
+      max-width: 460px;
+      width: 100%;
+      padding: 28px;
+    }
+    .admin-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--sampoerna-red-800);
+      margin: 0 0 6px 0;
+    }
+    .admin-sub {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+    .input-pass {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border-hairline);
+      border-radius: var(--radius-inner);
+      font-size: 0.95rem;
+      margin-top: 6px;
+      margin-bottom: 16px;
+      box-sizing: border-box;
+    }
+    .btn-purge {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #b91c1c, #991b1b);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-inner);
+      font-size: 0.95rem;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(185, 28, 28, 0.25);
+    }
+    .btn-purge:hover {
+      background: linear-gradient(135deg, #991b1b, #7f1d1d);
+    }
+    .msg-box {
+      padding: 12px 14px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      display: none;
+    }
+    .msg-success { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+    .msg-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  </style>
+</head>
+<body>
+
+  <div class="admin-card">
+    <h2 class="admin-title">🔒 LogScan Admin Control</h2>
+    <p class="admin-sub">PT SUMBER GRAHA SEJAHTERA (Sampoerna Kayoe)</p>
+
+    <div id="msgBox" class="msg-box"></div>
+
+    <label for="adminPass" style="font-size:0.85rem; font-weight:700; color:var(--text-main);">
+      Password Admin:
+    </label>
+    <input type="password" id="adminPass" class="input-pass" placeholder="Masukkan password admin..." autocomplete="off">
+
+    <button id="btnExecutePurge" class="btn-purge">
+      🚨 HAPUS SEMUA DATA LOG & FOTO (RESET PROTOTYPE)
+    </button>
+  </div>
+
+  <script>
+    const btnExecutePurge = document.getElementById('btnExecutePurge');
+    const adminPass = document.getElementById('adminPass');
+    const msgBox = document.getElementById('msgBox');
+
+    btnExecutePurge.addEventListener('click', async () => {
+      const password = adminPass.value.trim();
+
+      if (!password) {
+        showMsg('Silakan masukkan password admin.', 'error');
+        return;
+      }
+
+      if (!confirm('Yakin ingin menghapus seluruh data log dan foto uploaded?')) {
+        return;
+      }
+
+      btnExecutePurge.disabled = true;
+      btnExecutePurge.textContent = 'Memproses Reset Data...';
+
+      try {
+        const response = await fetch('/api/admin/clear-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+          throw new Error(result.error || 'Gagal menghapus data');
+        }
+
+        showMsg('✅ ' + result.message, 'success');
+        adminPass.value = '';
+      } catch (err) {
+        showMsg('❌ ' + err.message, 'error');
+      } finally {
+        btnExecutePurge.disabled = false;
+        btnExecutePurge.textContent = '🚨 HAPUS SEMUA DATA LOG & FOTO (RESET PROTOTYPE)';
+      }
+    });
+
+    function showMsg(text, type) {
+      msgBox.textContent = text;
+      msgBox.className = `msg-box msg-${type}`;
+      msgBox.style.display = 'block';
+    }
+  </script>
+
+</body>
+</html>

@@ -37,6 +37,12 @@ app.use((req, res, next) => {
   next();
 });
 
+// Serve Admin Page on /admin and /admin.html
+app.get(['/admin', '/admin.html'], (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.sendFile(path.join(__dirname, '../public/admin.html'));
+});
+
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, '../public')));
 // Serve uploaded images

@@ -3,6 +3,9 @@
  * Fully async using Promise-based Async SQLite interface.
  */
 
+const path = require('path');
+const fs = require('fs');
+
 function parseJSON(str, fallback = null) {
   if (!str) return fallback;
   if (typeof str === 'object') return str;
@@ -189,6 +192,26 @@ class LogService {
     const db = await this.getDb();
     const result = await db.run('DELETE FROM form_logs WHERE id = ?', id);
     return result.changes > 0;
+  }
+
+  async deleteAllLogs() {
+    const db = await this.getDb();
+    const rows = await db.all('SELECT foto_path FROM form_logs WHERE foto_path IS NOT NULL AND foto_path != ""');
+    
+    for (const row of rows) {
+      if (row.foto_path) {
+        const fullPath = path.join(__dirname, '../../', row.foto_path);
+        if (fs.existsSync(fullPath)) {
+          try { fs.unlinkSync(fullPath); } catch (e) {}
+        }
+      }
+    }
+
+    await db.run('DELETE FROM form_logs');
+    try {
+      await db.run('DELETE FROM sqlite_sequence WHERE name = "form_logs"');
+    } catch (e) {}
+    return true;
   }
 }
 

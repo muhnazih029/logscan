@@ -182,7 +182,7 @@ router.put('/logs/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/logs/:id - Delete log entry
+// DELETE /api/logs/:id - Delete single log entry
 router.delete('/logs/:id', async (req, res) => {
   try {
     const deleted = await logService.deleteLog(req.params.id);
@@ -192,6 +192,24 @@ router.delete('/logs/:id', async (req, res) => {
     res.json({ success: true, message: 'Data berhasil dihapus' });
   } catch (err) {
     console.error('[API] Error DELETE /logs:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/admin/clear-all - Reset all prototype log data (Password Protected: "deletedata")
+router.post('/admin/clear-all', async (req, res) => {
+  try {
+    const password = req.body && req.body.password ? String(req.body.password).trim() : '';
+    
+    if (password !== 'deletedata') {
+      return res.status(401).json({ success: false, error: 'Password Admin salah!' });
+    }
+
+    await logService.deleteAllLogs();
+    console.log('[ADMIN RESET] Seluruh data log & foto uploads berhasil dibersihkan oleh admin');
+    res.json({ success: true, message: 'Seluruh data log & foto uploaded berhasil dihapus!' });
+  } catch (err) {
+    console.error('[ADMIN RESET ERROR]', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
