@@ -298,7 +298,13 @@
     <!-- Toolbar Controls -->
     <div class="fullscreen-photo-toolbar">
       <span id="fullscreenPhotoTitle" class="fullscreen-title">Foto Form Fisik</span>
-      <button id="rotatePhotoBtn" class="btn-tool-rotate">🔄 Landscape / Rotate 90°</button>
+      <button id="rotatePhotoBtn" class="btn-tool-rotate">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align: middle; margin-right: 4px;">
+          <path d="M21.5 2v6h-6"/>
+          <path d="M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+        </svg>
+        <span>Rotasi 90°</span>
+      </button>
     </div>
 
     <div class="fullscreen-photo-container">
@@ -311,6 +317,6 @@
 
   <!-- Cropper.js Script -->
   <script src="/vendor/cropper.min.js"></script>
-  <script src="/app.js?v=3.0.0"></script>
+  <script src="/app.js?v=3.5.0"></script>
 </body>
 </html>

@@ -105,16 +105,28 @@ document.addEventListener('DOMContentLoaded', () => {
     pwaInstallBtn.style.display = 'none';
   });
 
-  // Online / Offline Status
-  function updateOnlineStatus() {
+  async function updateOnlineStatus() {
     const statusText = document.getElementById('networkStatusText');
     const dot = document.querySelector('.status-dot');
-    if (navigator.onLine) {
-      statusText.textContent = 'Online';
-      dot.style.backgroundColor = '#d9a738';
-    } else {
+
+    if (!navigator.onLine) {
       statusText.textContent = 'Offline';
-      dot.style.backgroundColor = '#78716c';
+      dot.style.backgroundColor = '#dc2626'; // Red
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/health', { method: 'GET', cache: 'no-store' });
+      if (res.ok) {
+        statusText.textContent = 'Online';
+        dot.style.backgroundColor = '#16a34a'; // Emerald Green
+      } else {
+        statusText.textContent = 'API Error';
+        dot.style.backgroundColor = '#dc2626'; // Red
+      }
+    } catch (err) {
+      statusText.textContent = 'Terputus';
+      dot.style.backgroundColor = '#dc2626'; // Red
     }
   }
   window.addEventListener('online', updateOnlineStatus);
@@ -439,17 +451,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function attachCardEvents() {
     document.querySelectorAll('.form-card').forEach(card => {
-      const rawJson = card.getAttribute('data-json');
-      const logData = JSON.parse(rawJson);
-
       card.addEventListener('click', (e) => {
-        if (e.target.classList.contains('btn-view-photo')) {
+        const photoBtn = e.target.closest('.btn-view-photo');
+        if (photoBtn) {
           e.stopPropagation();
-          const fotoPath = e.target.getAttribute('data-foto');
+          const fotoPath = photoBtn.getAttribute('data-foto');
+          const rawJson = card.getAttribute('data-json');
+          const logData = JSON.parse(rawJson || '{}');
           openPhotoModal(fotoPath, logData.no_lapen);
           return;
         }
-        openMatrixModal(logData);
+
+        try {
+          const rawJson = card.getAttribute('data-json');
+          const logData = JSON.parse(rawJson || '{}');
+          openMatrixModal(logData);
+        } catch (err) {
+          console.error('[Card Click Error]', err);
+          showToast('Gagal membuka detail form', 'error');
+        }
       });
     });
   }
