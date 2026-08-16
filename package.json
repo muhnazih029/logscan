@@ -23,6 +23,8 @@
     "express": "^5.2.1",
     "multer": "^2.2.0",
     "sharp": "^0.35.3",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^6.0.1",
     "tesseract.js": "^7.0.0"
   }
 }

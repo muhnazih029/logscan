@@ -1,5 +1,6 @@
 /**
  * LogService — Handles data layer and domain logic for form logs.
+ * Fully async using Promise-based Async SQLite interface.
  */
 
 function parseJSON(str, fallback = null) {
@@ -27,11 +28,19 @@ function formatRecord(row) {
 }
 
 class LogService {
-  constructor(db) {
-    this.db = db;
+  constructor(getDbFn) {
+    this.getDbFn = getDbFn;
   }
 
-  getLogs({ q = '', panjang = '', page = 1, limit = 25 } = {}) {
+  async getDb() {
+    if (typeof this.getDbFn === 'function') {
+      return await this.getDbFn();
+    }
+    return this.getDbFn; // direct db instance in test mocks
+  }
+
+  async getLogs({ q = '', panjang = '', page = 1, limit = 25 } = {}) {
+    const db = await this.getDb();
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.max(1, parseInt(limit, 10) || 25);
     const offset = (pageNum - 1) * limitNum;
@@ -61,9 +70,9 @@ class LogService {
 
     dataSql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
 
-    const totalRow = this.db.prepare(countSql).get(...params);
+    const totalRow = await db.get(countSql, ...params);
     const total = totalRow ? totalRow.total : 0;
-    const rows = this.db.prepare(dataSql).all(...params, limitNum, offset);
+    const rows = await db.all(dataSql, ...params, limitNum, offset);
 
     return {
       data: rows.map(formatRecord),
@@ -76,12 +85,14 @@ class LogService {
     };
   }
 
-  getLogById(id) {
-    const row = this.db.prepare('SELECT * FROM form_logs WHERE id = ?').get(id);
+  async getLogById(id) {
+    const db = await this.getDb();
+    const row = await db.get('SELECT * FROM form_logs WHERE id = ?', id);
     return formatRecord(row);
   }
 
-  createLog(logData = {}) {
+  async createLog(logData = {}) {
+    const db = await this.getDb();
     const {
       no_lapen = '',
       no_kendaraan = '',
@@ -98,18 +109,16 @@ class LogService {
       status_verifikasi = 'manual'
     } = logData;
 
-    const stmt = this.db.prepare(`
+    const jsonDetail = stringifyJSON(diameter_detail);
+    const jsonMarking = stringifyJSON(marking_s);
+
+    const result = await db.run(`
       INSERT INTO form_logs (
         no_lapen, no_kendaraan, panjang_log, block, nama_checker, tanggal,
         jumlah_batang, diameter_detail, marking_s, total, foto_path,
         confidence_score, status_verifikasi
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const jsonDetail = stringifyJSON(diameter_detail);
-    const jsonMarking = stringifyJSON(marking_s);
-
-    const info = stmt.run(
+    `,
       no_lapen,
       no_kendaraan,
       panjang_log || '260 CM',
@@ -125,11 +134,12 @@ class LogService {
       status_verifikasi
     );
 
-    return this.getLogById(info.lastInsertRowid);
+    return await this.getLogById(result.lastID);
   }
 
-  updateLog(id, updateData = {}) {
-    const existing = this.db.prepare('SELECT * FROM form_logs WHERE id = ?').get(id);
+  async updateLog(id, updateData = {}) {
+    const db = await this.getDb();
+    const existing = await db.get('SELECT * FROM form_logs WHERE id = ?', id);
     if (!existing) return null;
 
     const jsonDetail = updateData.diameter_detail !== undefined
@@ -140,7 +150,7 @@ class LogService {
       ? stringifyJSON(updateData.marking_s)
       : existing.marking_s;
 
-    const stmt = this.db.prepare(`
+    await db.run(`
       UPDATE form_logs SET
         no_lapen = ?,
         no_kendaraan = ?,
@@ -156,9 +166,7 @@ class LogService {
         status_verifikasi = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `);
-
-    stmt.run(
+    `,
       updateData.no_lapen !== undefined ? updateData.no_lapen : existing.no_lapen,
       updateData.no_kendaraan !== undefined ? updateData.no_kendaraan : existing.no_kendaraan,
       updateData.panjang_log !== undefined ? updateData.panjang_log : (existing.panjang_log || '260 CM'),
@@ -174,12 +182,13 @@ class LogService {
       id
     );
 
-    return this.getLogById(id);
+    return await this.getLogById(id);
   }
 
-  deleteLog(id) {
-    const info = this.db.prepare('DELETE FROM form_logs WHERE id = ?').run(id);
-    return info.changes > 0;
+  async deleteLog(id) {
+    const db = await this.getDb();
+    const result = await db.run('DELETE FROM form_logs WHERE id = ?', id);
+    return result.changes > 0;
   }
 }
 

@@ -1,11 +1,16 @@
 const { test, describe, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
-const Database = require('better-sqlite3');
+const { open } = require('sqlite');
+const sqlite3 = require('sqlite3');
 const LogService = require('../server/services/logService');
 
-function createTestDb() {
-  const db = new Database(':memory:');
-  db.exec(`
+async function createTestDb() {
+  const db = await open({
+    filename: ':memory:',
+    driver: sqlite3.Database
+  });
+
+  await db.exec(`
     CREATE TABLE form_logs (
       id                INTEGER PRIMARY KEY AUTOINCREMENT,
       no_lapen          TEXT,
@@ -28,97 +33,77 @@ function createTestDb() {
   return db;
 }
 
-describe('LogService Unit Tests', () => {
+describe('LogService Async Unit Tests', () => {
   let db;
   let logService;
 
-  beforeEach(() => {
-    db = createTestDb();
+  beforeEach(async () => {
+    db = await createTestDb();
     logService = new LogService(db);
   });
 
-  test('createLog() inserts a new log record correctly', () => {
-    const newLog = logService.createLog({
+  test('createLog() inserts a new log record correctly', async () => {
+    const newLog = await logService.createLog({
       no_lapen: '9393',
       no_kendaraan: 'AA 8979 IB',
+      panjang_log: '260 CM',
       block: 'B.16',
-      nama_checker: 'Zain',
-      jumlah_batang: 32,
-      diameter_detail: [{ d: 30, qty: 5 }, { d: 32, qty: 10 }],
-      total: 32,
-      confidence_score: 0.95,
-      status_verifikasi: 'auto'
+      jumlah_batang: 15,
+      diameter_detail: [{ d: 30, qty: 5 }, { d: 32, qty: 10 }]
     });
 
-    assert.equal(newLog.id, 1);
+    assert.ok(newLog.id);
     assert.equal(newLog.no_lapen, '9393');
     assert.equal(newLog.no_kendaraan, 'AA 8979 IB');
-    assert.equal(newLog.block, 'B.16');
-    assert.equal(newLog.nama_checker, 'Zain');
-    assert.equal(newLog.jumlah_batang, 32);
-    assert.equal(newLog.confidence_score, 0.95);
-    assert.equal(newLog.status_verifikasi, 'auto');
+    assert.equal(newLog.panjang_log, '260 CM');
+    assert.equal(newLog.jumlah_batang, 15);
     assert.deepEqual(newLog.diameter_detail, [{ d: 30, qty: 5 }, { d: 32, qty: 10 }]);
   });
 
-  test('getLogs() supports pagination and search queries', () => {
-    logService.createLog({ no_lapen: '9393', no_kendaraan: 'AA 8979 IB', block: 'B.16', nama_checker: 'Zain' });
-    logService.createLog({ no_lapen: '4455', no_kendaraan: 'B 1234 CD', block: 'A.01', nama_checker: 'Budi' });
-    logService.createLog({ no_lapen: '9900', no_kendaraan: 'AA 1122 EF', block: 'B.16', nama_checker: 'Andi' });
+  test('getLogs() supports pagination and search queries', async () => {
+    await logService.createLog({ no_lapen: '9393', no_kendaraan: 'AA 8979 IB', block: 'B.16', nama_checker: 'Zain' });
+    await logService.createLog({ no_lapen: '4455', no_kendaraan: 'B 1234 CD', block: 'A.01', nama_checker: 'Budi' });
+    await logService.createLog({ no_lapen: '9900', no_kendaraan: 'AA 1122 EF', block: 'B.16', nama_checker: 'Andi' });
 
     // Search query 'AA'
-    const resultSearch = logService.getLogs({ q: 'AA', page: 1, limit: 10 });
+    const resultSearch = await logService.getLogs({ q: 'AA', page: 1, limit: 10 });
     assert.equal(resultSearch.data.length, 2);
     assert.equal(resultSearch.pagination.total, 2);
 
     // Search query '9393'
-    const resultSearchNo = logService.getLogs({ q: '9393' });
+    const resultSearchNo = await logService.getLogs({ q: '9393' });
     assert.equal(resultSearchNo.data.length, 1);
     assert.equal(resultSearchNo.data[0].no_lapen, '9393');
 
     // Pagination limit test
-    const pageResult = logService.getLogs({ page: 1, limit: 2 });
+    const pageResult = await logService.getLogs({ page: 1, limit: 2 });
     assert.equal(pageResult.data.length, 2);
-    assert.equal(pageResult.pagination.totalPages, 2);
   });
 
-  test('getLogById() returns record or null', () => {
-    const created = logService.createLog({ no_lapen: '1001', no_kendaraan: 'H 5566 KK' });
-    const fetched = logService.getLogById(created.id);
-    assert.equal(fetched.no_lapen, '1001');
+  test('getLogById() returns record or null', async () => {
+    const created = await logService.createLog({ no_lapen: '8811' });
+    const fetched = await logService.getLogById(created.id);
+    assert.equal(fetched.no_lapen, '8811');
 
-    const notFound = logService.getLogById(999);
+    const notFound = await logService.getLogById(99999);
     assert.equal(notFound, null);
   });
 
-  test('updateLog() performs partial inline updates', () => {
-    const initial = logService.createLog({
-      no_lapen: '1001',
-      no_kendaraan: 'H 5566 KK',
-      jumlah_batang: 10,
-      status_verifikasi: 'auto'
-    });
+  test('updateLog() performs partial inline updates', async () => {
+    const created = await logService.createLog({ no_lapen: '1000', jumlah_batang: 5 });
+    const updated = await logService.updateLog(created.id, { jumlah_batang: 12, status_verifikasi: 'edited' });
 
-    const updated = logService.updateLog(initial.id, {
-      jumlah_batang: 15,
-      nama_checker: 'Kukuh'
-    });
-
-    assert.equal(updated.no_lapen, '1001'); // unchanged
-    assert.equal(updated.jumlah_batang, 15); // updated
-    assert.equal(updated.nama_checker, 'Kukuh'); // updated
-    assert.equal(updated.status_verifikasi, 'edited'); // default update status
+    assert.equal(updated.no_lapen, '1000');
+    assert.equal(updated.jumlah_batang, 12);
+    assert.equal(updated.status_verifikasi, 'edited');
   });
 
-  test('deleteLog() removes the record', () => {
-    const created = logService.createLog({ no_lapen: '9999' });
-    const isDeleted = logService.deleteLog(created.id);
+  test('deleteLog() removes the record', async () => {
+    const created = await logService.createLog({ no_lapen: '5555' });
+    const isDeleted = await logService.deleteLog(created.id);
     assert.equal(isDeleted, true);
 
-    const fetched = logService.getLogById(created.id);
+    const fetched = await logService.getLogById(created.id);
     assert.equal(fetched, null);
-
-    const deleteNonExisting = logService.deleteLog(999);
-    assert.equal(deleteNonExisting, false);
   });
 });

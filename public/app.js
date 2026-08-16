@@ -201,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function uploadCroppedBlob(imageBlob) {
     uploadProgressCard.style.display = 'block';
-    updateProgress(50, 'Mengunggah Foto Form (<100ms)...', 'Menyimpan foto ke server...');
+    updateProgress(50, 'Mengunggah Foto Form...', 'Menyimpan foto ke server...');
 
     const formData = new FormData();
     formData.append('foto', imageBlob, `form_crop_${Date.now()}.jpg`);
@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!result.success) throw new Error(result.error || 'Gagal mengunggah foto');
 
       updateProgress(100, 'Tersimpan!', 'Foto tersimpan. AI sedang mengekstrak di latar belakang.');
-      showToast('⚡ Foto tersimpan! Gemini AI sedang mengekstrak di latar belakang ⏳', 'info');
+      showToast('Foto tersimpan! AI sedang mengekstrak data di latar belakang.', 'info');
       
       loadLogFeed();
       startQueuePolling();
