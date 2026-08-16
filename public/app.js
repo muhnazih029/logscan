@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let searchDebounceTimer = null;
   let activeLogData = null; // currently selected log record for matrix editing
   let currentDiameterDetail = []; // array of { d: number, qty: number }
+  let cropperInstance = null; // Cropper.js instance
 
   // DOM Elements
   const scanCameraBtn = document.getElementById('scanCameraBtn');
@@ -26,6 +27,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const prevPageBtn = document.getElementById('prevPageBtn');
   const nextPageBtn = document.getElementById('nextPageBtn');
 
+  // Crop Modal Elements
+  const cropModal = document.getElementById('cropModal');
+  const cropImageTarget = document.getElementById('cropImageTarget');
+  const closeCropModalBtn = document.getElementById('closeCropModalBtn');
+  const cancelCropBtn = document.getElementById('cancelCropBtn');
+  const confirmCropBtn = document.getElementById('confirmCropBtn');
+  const rotateCropBtn = document.getElementById('rotateCropBtn');
+
+  // Matrix Modal Elements
   const matrixModal = document.getElementById('matrixModal');
   const closeMatrixModalBtn = document.getElementById('closeMatrixModalBtn');
   const matrixModalSap = document.getElementById('matrixModalSap');
@@ -37,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const saveMatrixBtn = document.getElementById('saveMatrixBtn');
   const deleteLogBtn = document.getElementById('deleteLogBtn');
 
+  // Photo Modal Elements
   const photoModal = document.getElementById('photoModal');
   const modalPhotoImage = document.getElementById('modalPhotoImage');
   const photoModalTitle = document.getElementById('photoModalTitle');
@@ -80,12 +91,12 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('online', updateOnlineStatus);
   window.addEventListener('offline', updateOnlineStatus);
 
-  // --- 2. Scan & File Upload Handling ---
+  // --- 2. Camera & File Selection ---
   scanCameraBtn.addEventListener('click', () => {
     cameraFileInput.click();
   });
 
-  cameraFileInput.addEventListener('change', async () => {
+  cameraFileInput.addEventListener('change', () => {
     const file = cameraFileInput.files[0];
     if (!file) return;
 
@@ -94,14 +105,82 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    // Open Crop Modal for user to crop/zoom area
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      openCropModal(e.target.result);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // --- 3. Interactive Cropper Modal ---
+  function openCropModal(imageSrc) {
+    cropImageTarget.src = imageSrc;
+    cropModal.style.display = 'flex';
+
+    if (cropperInstance) {
+      cropperInstance.destroy();
+    }
+
+    cropperInstance = new Cropper(cropImageTarget, {
+      viewMode: 1,
+      autoCropArea: 0.9,
+      responsive: true,
+      restore: false,
+      zoomable: true,
+      rotatable: true,
+      scalable: true
+    });
+  }
+
+  rotateCropBtn.addEventListener('click', () => {
+    if (cropperInstance) {
+      cropperInstance.rotate(90);
+    }
+  });
+
+  closeCropModalBtn.addEventListener('click', closeCropModal);
+  cancelCropBtn.addEventListener('click', closeCropModal);
+
+  function closeCropModal() {
+    if (cropperInstance) {
+      cropperInstance.destroy();
+      cropperInstance = null;
+    }
+    cropModal.style.display = 'none';
+    cameraFileInput.value = '';
+  }
+
+  confirmCropBtn.addEventListener('click', () => {
+    if (!cropperInstance) return;
+
+    // Get cropped high-res canvas
+    const canvas = cropperInstance.getCroppedCanvas({
+      maxWidth: 2048,
+      maxHeight: 2048,
+      fillColor: '#ffffff'
+    });
+
+    if (!canvas) {
+      showToast('Gagal memotong gambar', 'error');
+      return;
+    }
+
+    canvas.toBlob(async (blob) => {
+      closeCropModal();
+      uploadCroppedBlob(blob);
+    }, 'image/jpeg', 0.92);
+  });
+
+  async function uploadCroppedBlob(imageBlob) {
     uploadProgressCard.style.display = 'block';
-    updateProgress(25, 'Mengunggah Foto Form...', 'Mengirim foto ke server...');
+    updateProgress(25, 'Mengunggah Foto Form Hasil Potong...', 'Mengirim foto terfokus ke Gemini AI...');
 
     const formData = new FormData();
-    formData.append('foto', file);
+    formData.append('foto', imageBlob, `form_crop_${Date.now()}.jpg`);
 
     try {
-      updateProgress(50, 'Menganalisis Form via Vision AI...', 'Membaca No. SAP & matriks diameter log...');
+      updateProgress(50, 'Menganalisis Form via Gemini Vision AI...', 'Membaca No. SAP & matriks diameter log...');
 
       const response = await fetch('/api/upload', {
         method: 'POST',
@@ -115,11 +194,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       updateProgress(100, 'Selesai!', 'Data berhasil diekstrak.');
 
+      const engineName = result.engine === 'gemini' ? 'Gemini AI' : 'OCR';
+
       if (result.status === 'auto') {
-        showToast('✅ Form berhasil dibaca dan disimpan otomatis!', 'success');
+        showToast(`✅ Data diekstrak via ${engineName} & disimpan otomatis!`, 'success');
         loadLogFeed();
       } else {
-        showToast('ℹ️ Form dibaca, buka modal untuk verifikasi diameter', 'warning');
+        showToast(`ℹ️ Data dibaca via ${engineName}, buka modal untuk verfirmasi`, 'warning');
         openMatrixModal(result.data);
       }
     } catch (err) {
@@ -128,10 +209,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
       setTimeout(() => {
         uploadProgressCard.style.display = 'none';
-        cameraFileInput.value = '';
       }, 1000);
     }
-  });
+  }
 
   function updateProgress(percent, title, sub) {
     progressBarFill.style.width = `${percent}%`;
@@ -139,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
     progressSub.textContent = sub;
   }
 
-  // --- 3. Log Feed Loading & Search ---
+  // --- 4. Log Feed Loading & Search ---
   searchInput.addEventListener('input', () => {
     clearSearchBtn.style.display = searchInput.value ? 'block' : 'none';
     clearTimeout(searchDebounceTimer);
@@ -261,7 +341,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const rawJson = card.getAttribute('data-json');
       const logData = JSON.parse(rawJson);
 
-      // Tap card or edit matrix button -> open Diameter Tally Matrix Editor
       card.addEventListener('click', (e) => {
         if (e.target.classList.contains('btn-view-photo')) {
           e.stopPropagation();
@@ -274,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- 4. Diameter Tally Matrix Grid Editor ---
+  // --- 5. Diameter Tally Matrix Grid Editor ---
   function openMatrixModal(logData) {
     activeLogData = logData;
     currentDiameterDetail = Array.isArray(logData.diameter_detail) ? [...logData.diameter_detail] : [];
@@ -289,7 +368,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderMatrixGrid() {
-    // Generate Ø 20 cm to Ø 50 cm buttons
     const cells = [];
     const qtyMap = {};
     currentDiameterDetail.forEach(item => {
@@ -317,7 +395,6 @@ document.addEventListener('DOMContentLoaded', () => {
     diameterMatrixGrid.innerHTML = cells.join('');
     matrixTotalDisplay.textContent = calculatedTotal;
 
-    // Attach +/- buttons and input events
     diameterMatrixGrid.querySelectorAll('.btn-minus').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -377,7 +454,6 @@ document.addEventListener('DOMContentLoaded', () => {
   saveMatrixBtn.addEventListener('click', async () => {
     if (!activeLogData) return;
 
-    // Filter out zero quantities and sort by diameter
     const validDetails = currentDiameterDetail
       .filter(item => item.qty > 0)
       .sort((a, b) => a.d - b.d);
@@ -396,14 +472,12 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       let response;
       if (activeLogData.id) {
-        // Existing record -> PUT update
         response = await fetch(`/api/logs/${activeLogData.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
       } else {
-        // Pending upload -> POST save
         response = await fetch('/api/logs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -448,7 +522,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // --- 5. Photo Modal Viewer ---
+  // --- 6. Photo Modal Viewer ---
   function openPhotoModal(fotoPath, sapTitle) {
     if (!fotoPath) {
       showToast('Foto tidak tersedia', 'warning');
@@ -462,13 +536,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   closePhotoModalBtn.addEventListener('click', () => photoModal.style.display = 'none');
 
-  [matrixModal, photoModal].forEach(modal => {
+  [cropModal, matrixModal, photoModal].forEach(modal => {
     modal.addEventListener('click', (e) => {
-      if (e.target === modal) modal.style.display = 'none';
+      if (e.target === modal && modal !== cropModal) modal.style.display = 'none';
     });
   });
 
-  // --- 6. Toast Notification Helper ---
+  // --- 7. Toast Notification Helper ---
   function showToast(message, type = 'info') {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
@@ -484,7 +558,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 3500);
   }
 
-  // Helper
   function escapeHtml(str) {
     return String(str || '')
       .replace(/&/g, '&amp;')

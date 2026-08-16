@@ -6,7 +6,9 @@ const ASSETS_TO_CACHE = [
   '/app.js',
   '/manifest.json',
   '/icons/icon-192.svg',
-  '/icons/icon-512.svg'
+  '/icons/icon-512.svg',
+  '/vendor/cropper.min.css',
+  '/vendor/cropper.min.js'
 ];
 
 self.addEventListener('install', (event) => {

@@ -17,6 +17,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   
+  <!-- Cropper.js CSS -->
+  <link rel="stylesheet" href="/vendor/cropper.min.css">
+  
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -59,7 +62,7 @@
         </div>
         <div class="scan-btn-text">
           <span class="scan-label">Ambil Foto Form Baru</span>
-          <span class="scan-sub">AI Vision akan otomatis membaca No. SAP & Turus Diameter</span>
+          <span class="scan-sub">Ambil foto -> Potong area form -> Gemini AI ekstrak otomatis</span>
         </div>
       </button>
 
@@ -115,6 +118,33 @@
       </div>
     </div>
   </main>
+
+  <!-- MODAL CROP GAMBAR (Cropper.js) -->
+  <div id="cropModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card crop-modal-card">
+      <div class="modal-header">
+        <div>
+          <h3>✂️ Potong & Zoom Area Form</h3>
+          <p class="modal-subtitle">Geser sudut bingkai untuk memotong area kertas form saja</p>
+        </div>
+        <button id="closeCropModalBtn" class="modal-close">&times;</button>
+      </div>
+
+      <div class="modal-body crop-modal-body">
+        <div class="crop-container">
+          <img id="cropImageTarget" src="" alt="Foto untuk dipotong">
+        </div>
+      </div>
+
+      <div class="modal-footer crop-modal-footer">
+        <button type="button" id="rotateCropBtn" class="btn-secondary-outline">🔄 Putar 90°</button>
+        <div class="crop-actions-right">
+          <button type="button" id="cancelCropBtn" class="btn-danger-outline">Batal</button>
+          <button type="button" id="confirmCropBtn" class="btn-primary-gradient">✂️ Potong & Kirim ke AI</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL MATRIX DIAMETER & DETAIL EDIT -->
   <div id="matrixModal" class="modal-backdrop" style="display: none;">
@@ -186,6 +216,8 @@
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>
 
+  <!-- Cropper.js Script -->
+  <script src="/vendor/cropper.min.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

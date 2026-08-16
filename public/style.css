@@ -444,6 +444,55 @@ body {
   margin-bottom: 8px;
 }
 
+/* Crop Modal */
+.crop-modal-card {
+  max-width: 640px;
+  max-height: 95vh;
+}
+
+.crop-modal-body {
+  padding: 0;
+  background: #0f172a;
+}
+
+.crop-container {
+  width: 100%;
+  height: 60vh;
+  max-height: 500px;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.crop-container img {
+  max-width: 100%;
+  display: block;
+}
+
+.crop-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.crop-actions-right {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-secondary-outline {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: var(--text-main);
+  padding: 10px 14px;
+  border-radius: var(--radius-inner);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 /* Modals */
 .modal-backdrop {
   position: fixed;

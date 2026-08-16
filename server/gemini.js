@@ -97,8 +97,8 @@ PETUNJUK SANGAT PENTING:
 6. HANYA kembalikan JSON murni.
 `;
 
-  // Try available Gemini Flash model candidates
-  const modelCandidates = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
+  // Try available Gemini Flash model candidates (gemini-flash-latest is primary for standard API keys)
+  const modelCandidates = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.6-flash'];
   let lastError = null;
   let responseText = null;
 
