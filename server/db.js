@@ -17,6 +17,7 @@ function initDb() {
       id                INTEGER PRIMARY KEY AUTOINCREMENT,
       no_lapen          TEXT,
       no_kendaraan      TEXT,
+      panjang_log       TEXT DEFAULT '260 CM',
       block             TEXT,
       nama_checker      TEXT,
       tanggal           DATE,
@@ -34,6 +35,19 @@ function initDb() {
     CREATE INDEX IF NOT EXISTS idx_no_kendaraan ON form_logs(no_kendaraan);
     CREATE INDEX IF NOT EXISTS idx_tanggal ON form_logs(tanggal);
   `);
+
+  // Migration check: add panjang_log column if missing in existing database
+  try {
+    const tableInfo = db.prepare("PRAGMA table_info(form_logs)").all();
+    const hasPanjangLog = tableInfo.some(col => col.name === 'panjang_log');
+    if (!hasPanjangLog) {
+      db.exec("ALTER TABLE form_logs ADD COLUMN panjang_log TEXT DEFAULT '260 CM'");
+      console.log('[DB] Migrated: Added panjang_log column to form_logs');
+    }
+  } catch (e) {
+    console.warn('[DB Migration]', e.message);
+  }
+
   console.log('[DB] SQLite database initialized at:', dbPath);
 }
 

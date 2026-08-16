@@ -1,5 +1,5 @@
 /**
- * LogScan — High-End Ergonomic Mobile PWA Application Logic
+ * LogScan — Crimson Blood Red High-End Mobile PWA Application Logic
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -7,9 +7,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentPage = 1;
   let totalPages = 1;
   let searchDebounceTimer = null;
-  let activeLogData = null; // currently selected log record for matrix editing
+  let activeLogData = null; // currently selected log record
   let currentDiameterDetail = []; // array of { d: number, qty: number }
   let cropperInstance = null; // Cropper.js instance
+  let showOnlyActiveFilter = false; // toggle zero filter
 
   // DOM Elements
   const scanCameraBtn = document.getElementById('scanCameraBtn');
@@ -42,16 +43,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const matrixModalNopol = document.getElementById('matrixModalNopol');
   const editSapInput = document.getElementById('editSapInput');
   const editNopolInput = document.getElementById('editNopolInput');
+  const editPanjangInput = document.getElementById('editPanjangInput');
   const matrixTotalDisplay = document.getElementById('matrixTotalDisplay');
   const diameterMatrixGrid = document.getElementById('diameterMatrixGrid');
+  const toggleZeroFilterBtn = document.getElementById('toggleZeroFilterBtn');
   const saveMatrixBtn = document.getElementById('saveMatrixBtn');
   const deleteLogBtn = document.getElementById('deleteLogBtn');
+  const modalViewPhotoBtn = document.getElementById('modalViewPhotoBtn');
 
   // Photo Modal Elements
   const photoModal = document.getElementById('photoModal');
   const modalPhotoImage = document.getElementById('modalPhotoImage');
-  const photoModalTitle = document.getElementById('photoModalTitle');
+  const fullscreenPhotoTitle = document.getElementById('fullscreenPhotoTitle');
   const closePhotoModalBtn = document.getElementById('closePhotoModalBtn');
+  const rotatePhotoBtn = document.getElementById('rotatePhotoBtn');
 
   const pwaInstallBtn = document.getElementById('pwaInstallBtn');
 
@@ -82,10 +87,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const dot = document.querySelector('.status-dot');
     if (navigator.onLine) {
       statusText.textContent = 'Online';
-      dot.style.backgroundColor = '#10b981';
+      dot.style.backgroundColor = '#f43f5e';
     } else {
       statusText.textContent = 'Offline';
-      dot.style.backgroundColor = '#ef4444';
+      dot.style.backgroundColor = '#94a3b8';
     }
   }
   window.addEventListener('online', updateOnlineStatus);
@@ -154,7 +159,6 @@ document.addEventListener('DOMContentLoaded', () => {
   confirmCropBtn.addEventListener('click', () => {
     if (!cropperInstance) return;
 
-    // Get cropped high-res canvas
     const canvas = cropperInstance.getCroppedCanvas({
       maxWidth: 2048,
       maxHeight: 2048,
@@ -200,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast(`✅ Data diekstrak via ${engineName} & disimpan otomatis!`, 'success');
         loadLogFeed();
       } else {
-        showToast(`ℹ️ Data dibaca via ${engineName}, buka modal untuk verfirmasi`, 'warning');
+        showToast(`ℹ️ Data dibaca via ${engineName}, buka modal untuk verifikasi`, 'warning');
         openMatrixModal(result.data);
       }
     } catch (err) {
@@ -276,7 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="empty-feed">
             <div class="empty-icon">🪵</div>
             <h3>${searchInput.value ? 'Tidak Ditemukan' : 'Belum Ada Data Log'}</h3>
-            <p>${searchInput.value ? 'Coba kata kunci pencarian lain.' : 'Ketuk "Ambil Foto Form Baru" di atas untuk mulai mendigitalisasi form.'}</p>
+            <p>${searchInput.value ? 'Coba cari No. SAP atau No. Mobil lain.' : 'Ketuk "Ambil Foto Form Baru" di atas untuk mulai mendigitalisasi form.'}</p>
           </div>
         `;
         return;
@@ -308,6 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const badgeClass = row.status_verifikasi === 'auto' ? 'badge-auto' : (row.status_verifikasi === 'edited' ? 'badge-edited' : 'badge-manual');
+    const panjangText = row.panjang_log || '260 CM';
 
     return `
       <div class="form-card" data-id="${row.id}" data-json='${escapeHtml(JSON.stringify(row))}'>
@@ -317,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
 
         <div class="card-main-stat">
-          <span class="stat-label">Total Batang Log</span>
+          <span class="stat-label">Total Batang Log <span class="panjang-badge">${escapeHtml(panjangText)}</span></span>
           <div class="stat-number">${row.jumlah_batang || row.total || 0}<span class="stat-unit">btg</span></div>
         </div>
 
@@ -353,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- 5. Diameter Tally Matrix Grid Editor ---
+  // --- 5. Diameter Tally Matrix Grid Editor (Highlight Active vs Zero) ---
   function openMatrixModal(logData) {
     activeLogData = logData;
     currentDiameterDetail = Array.isArray(logData.diameter_detail) ? [...logData.diameter_detail] : [];
@@ -362,10 +367,27 @@ document.addEventListener('DOMContentLoaded', () => {
     matrixModalNopol.textContent = logData.no_kendaraan || '-';
     editSapInput.value = logData.no_lapen || '';
     editNopolInput.value = logData.no_kendaraan || '';
+    editPanjangInput.value = logData.panjang_log || '260 CM';
+
+    // Show/hide view photo button in modal footer
+    if (logData.foto_path) {
+      modalViewPhotoBtn.style.display = 'inline-flex';
+    } else {
+      modalViewPhotoBtn.style.display = 'none';
+    }
 
     renderMatrixGrid();
     matrixModal.style.display = 'flex';
   }
+
+  toggleZeroFilterBtn.addEventListener('click', () => {
+    showOnlyActiveFilter = !showOnlyActiveFilter;
+    toggleZeroFilterBtn.classList.toggle('active-filter', showOnlyActiveFilter);
+    toggleZeroFilterBtn.querySelector('span').textContent = showOnlyActiveFilter
+      ? 'Tampilkan Semua (10-60)'
+      : 'Hanya Ada Batang (Qty > 0)';
+    renderMatrixGrid();
+  });
 
   function renderMatrixGrid() {
     const cells = [];
@@ -376,12 +398,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let calculatedTotal = 0;
 
-    for (let d = 20; d <= 50; d++) {
+    // Range Ø 10 to Ø 60 cm
+    for (let d = 10; d <= 60; d++) {
       const qty = qtyMap[d] || 0;
       calculatedTotal += qty;
 
+      if (showOnlyActiveFilter && qty === 0) {
+        continue;
+      }
+
+      const isActive = qty > 0;
+      const cellClass = isActive ? 'matrix-cell cell-active' : 'matrix-cell cell-zero';
+
       cells.push(`
-        <div class="matrix-cell" data-d="${d}">
+        <div class="${cellClass}" data-d="${d}">
           <div class="matrix-label">Ø ${d} cm</div>
           <div class="matrix-controls">
             <button class="btn-qty btn-minus" data-d="${d}">-</button>
@@ -392,9 +422,15 @@ document.addEventListener('DOMContentLoaded', () => {
       `);
     }
 
-    diameterMatrixGrid.innerHTML = cells.join('');
+    if (cells.length === 0 && showOnlyActiveFilter) {
+      diameterMatrixGrid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px; color:#94a3b8">Belum ada rincian batang kayu. Matikan filter untuk menambah diameter.</div>';
+    } else {
+      diameterMatrixGrid.innerHTML = cells.join('');
+    }
+
     matrixTotalDisplay.textContent = calculatedTotal;
 
+    // Attach +/- buttons & input handlers
     diameterMatrixGrid.querySelectorAll('.btn-minus').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -451,6 +487,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   closeMatrixModalBtn.addEventListener('click', () => matrixModal.style.display = 'none');
 
+  modalViewPhotoBtn.addEventListener('click', () => {
+    if (activeLogData && activeLogData.foto_path) {
+      openPhotoModal(activeLogData.foto_path, activeLogData.no_lapen);
+    }
+  });
+
   saveMatrixBtn.addEventListener('click', async () => {
     if (!activeLogData) return;
 
@@ -463,6 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const payload = {
       no_lapen: editSapInput.value.trim(),
       no_kendaraan: editNopolInput.value.trim(),
+      panjang_log: editPanjangInput.value.trim() || '260 CM',
       diameter_detail: validDetails,
       jumlah_batang: calculatedTotal,
       total: calculatedTotal,
@@ -522,7 +565,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // --- 6. Photo Modal Viewer ---
+  // --- 6. Fullscreen Landscape Photo Viewer ---
   function openPhotoModal(fotoPath, sapTitle) {
     if (!fotoPath) {
       showToast('Foto tidak tersedia', 'warning');
@@ -530,15 +573,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const fullSrc = fotoPath.startsWith('/') ? fotoPath : `/${fotoPath}`;
     modalPhotoImage.src = fullSrc;
-    photoModalTitle.textContent = `Foto Form Fisik (SAP: ${sapTitle || '-'})`;
+    modalPhotoImage.classList.remove('rotated-landscape');
+    fullscreenPhotoTitle.textContent = `Foto Form Fisik (SAP: ${sapTitle || '-'})`;
     photoModal.style.display = 'flex';
   }
 
-  closePhotoModalBtn.addEventListener('click', () => photoModal.style.display = 'none');
+  rotatePhotoBtn.addEventListener('click', () => {
+    modalPhotoImage.classList.toggle('rotated-landscape');
+  });
+
+  closePhotoModalBtn.addEventListener('click', () => {
+    photoModal.style.display = 'none';
+  });
 
   [cropModal, matrixModal, photoModal].forEach(modal => {
     modal.addEventListener('click', (e) => {
-      if (e.target === modal && modal !== cropModal) modal.style.display = 'none';
+      if (e.target === modal && modal !== cropModal && modal !== photoModal) {
+        modal.style.display = 'none';
+      }
     });
   });
 

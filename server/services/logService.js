@@ -40,7 +40,7 @@ class LogService {
     let dataSql = 'SELECT * FROM form_logs';
     const params = [];
 
-    if (q) {
+    if (q && q.trim() !== '') {
       const searchWhere = ' WHERE no_lapen LIKE ? OR no_kendaraan LIKE ? OR block LIKE ? OR nama_checker LIKE ?';
       countSql += searchWhere;
       dataSql += searchWhere;
@@ -74,6 +74,7 @@ class LogService {
     const {
       no_lapen = '',
       no_kendaraan = '',
+      panjang_log = '260 CM',
       block = '',
       nama_checker = '',
       tanggal = new Date().toISOString().split('T')[0],
@@ -87,10 +88,10 @@ class LogService {
 
     const stmt = this.db.prepare(`
       INSERT INTO form_logs (
-        no_lapen, no_kendaraan, block, nama_checker, tanggal,
+        no_lapen, no_kendaraan, panjang_log, block, nama_checker, tanggal,
         jumlah_batang, diameter_detail, total, foto_path,
         confidence_score, status_verifikasi
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const jsonDetail = stringifyJSON(diameter_detail);
@@ -98,6 +99,7 @@ class LogService {
     const info = stmt.run(
       no_lapen,
       no_kendaraan,
+      panjang_log || '260 CM',
       block,
       nama_checker,
       tanggal,
@@ -124,6 +126,7 @@ class LogService {
       UPDATE form_logs SET
         no_lapen = ?,
         no_kendaraan = ?,
+        panjang_log = ?,
         block = ?,
         nama_checker = ?,
         tanggal = ?,
@@ -139,6 +142,7 @@ class LogService {
     stmt.run(
       updateData.no_lapen !== undefined ? updateData.no_lapen : existing.no_lapen,
       updateData.no_kendaraan !== undefined ? updateData.no_kendaraan : existing.no_kendaraan,
+      updateData.panjang_log !== undefined ? updateData.panjang_log : (existing.panjang_log || '260 CM'),
       updateData.block !== undefined ? updateData.block : existing.block,
       updateData.nama_checker !== undefined ? updateData.nama_checker : existing.nama_checker,
       updateData.tanggal !== undefined ? updateData.tanggal : existing.tanggal,

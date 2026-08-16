@@ -10,6 +10,7 @@ function createTestDb() {
       id                INTEGER PRIMARY KEY AUTOINCREMENT,
       no_lapen          TEXT,
       no_kendaraan      TEXT,
+      panjang_log       TEXT DEFAULT '260 CM',
       block             TEXT,
       nama_checker      TEXT,
       tanggal           DATE,

@@ -63,11 +63,12 @@ async function extractWithGemini(imagePath) {
 
   const prompt = `
 Kamu adalah sistem AI Visi Komputer industri perkayuan / log kayu.
-Analisis foto dokumen "FORM CHECKING ULANG PANJANG LOG 260 CM" ini dan ekstrak data berikut ke dalam format JSON murni TANPA markdown/backticks/teks tambahan:
+Analisis foto dokumen form checking ulang log kayu ini dan ekstrak data berikut ke dalam format JSON murni TANPA markdown/backticks/teks tambahan:
 
 {
   "no_lapen": "9393",
   "no_kendaraan": "AA 8979 IB",
+  "panjang_log": "260 CM",
   "block": "B.16",
   "nama_checker": "Zain",
   "tanggal": "2026-08-15",
@@ -88,13 +89,14 @@ Analisis foto dokumen "FORM CHECKING ULANG PANJANG LOG 260 CM" ini dan ekstrak d
 PETUNJUK SANGAT PENTING:
 1. "no_lapen": Ambil angka di kolom "NO SAP" / "NO LAPEN" (contoh: 9393).
 2. "no_kendaraan": Ambil nomor polisi mobil (contoh: AA 8979 IB).
-3. "block": Ambil kode block jika ada (contoh: B.16).
-4. "diameter_detail": PERHATIKAN TABEL GRADE / DIAMETER Ø (ukuran 20 sampai 50 cm).
+3. "panjang_log": Cek judul/header form, apakah "PANJANG LOG 260 CM", "PANJANG LOG 130 CM", atau angka panjang lainnya (default: "260 CM").
+4. "block": Ambil kode block jika ada (contoh: B.16).
+5. "diameter_detail": PERHATIKAN TABEL GRADE / DIAMETER Ø (ukuran diameter bisa berkisar 10 cm sampai 60 cm).
    - Periksa setiap baris diameter Ø.
    - Hitung turus (tally marks ||||) ATAU angka jumlah batang kayu di sebelah kanan baris diameter tersebut.
    - Masukkan ke array "diameter_detail" hanya untuk diameter yang qty-nya > 0. Contoh: [{"d": 25, "qty": 5}, {"d": 27, "qty": 10}].
-5. "total": Total keseluruhan jumlah batang log kayu. Ambil angka di bagian TOTAL atau hitung total dari diameter_detail.
-6. HANYA kembalikan JSON murni.
+6. "total": Total keseluruhan jumlah batang log kayu. Ambil angka di bagian TOTAL atau hitung total dari diameter_detail.
+7. HANYA kembalikan JSON murni.
 `;
 
   // Try available Gemini Flash model candidates (gemini-flash-latest is primary for standard API keys)
@@ -150,6 +152,7 @@ PETUNJUK SANGAT PENTING:
   const fields = {
     no_lapen: parsedData.no_lapen ? String(parsedData.no_lapen).trim() : null,
     no_kendaraan: parsedData.no_kendaraan ? String(parsedData.no_kendaraan).trim() : null,
+    panjang_log: parsedData.panjang_log ? String(parsedData.panjang_log).trim() : '260 CM',
     block: parsedData.block ? String(parsedData.block).trim() : null,
     nama_checker: parsedData.nama_checker ? String(parsedData.nama_checker).trim() : null,
     tanggal: parsedData.tanggal ? String(parsedData.tanggal).trim() : new Date().toISOString().split('T')[0],

@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#064e3b">
-  <meta name="description" content="LogScan — Digital Checking Form Log Kayu 260 CM">
-  <title>LogScan — Digital Checking Form Log</title>
+  <meta name="theme-color" content="#881337">
+  <meta name="description" content="LogScan — Digital Checking Form Log Kayu">
+  <title>LogScan — Form Checking Log Kayu</title>
   
   <!-- PWA Manifest -->
   <link rel="manifest" href="/manifest.json">
@@ -15,7 +15,7 @@
   <!-- Plus Jakarta Sans & JetBrains Mono Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
   
   <!-- Cropper.js CSS -->
   <link rel="stylesheet" href="/vendor/cropper.min.css">
@@ -24,7 +24,7 @@
 </head>
 <body>
 
-  <!-- Top App Header -->
+  <!-- Top App Header (Crimson Blood Red Brand) -->
   <header class="app-header">
     <div class="brand">
       <div class="brand-logo">
@@ -168,6 +168,10 @@
             <label>No. Mobil</label>
             <input type="text" id="editNopolInput" placeholder="AA 8979 IB">
           </div>
+          <div class="field-item">
+            <label>Panjang Log</label>
+            <input type="text" id="editPanjangInput" placeholder="260 CM">
+          </div>
         </div>
 
         <!-- Total Batang Highlight -->
@@ -182,34 +186,45 @@
           </div>
         </div>
 
-        <!-- Diameter Tally Matrix (Ø 20 - Ø 50) -->
-        <div class="matrix-section-title">
-          <h4>Matriks Jumlah per Diameter Ø (cm)</h4>
-          <small>Ketuk angka untuk mengedit jumlah batang</small>
+        <!-- Diameter Tally Matrix (Ø 10 - Ø 60) -->
+        <div class="matrix-section-header">
+          <div class="matrix-section-title">
+            <h4>Matriks Jumlah per Diameter Ø (cm)</h4>
+            <small>Highlight merah = ada batang kayu (> 0)</small>
+          </div>
+          <button id="toggleZeroFilterBtn" class="btn-toggle-filter" data-filter="all">
+            <span>Hanya Ada Batang (Qty > 0)</span>
+          </button>
         </div>
 
         <div id="diameterMatrixGrid" class="matrix-grid">
-          <!-- Populated dynamically via JS for Ø20 to Ø50 -->
+          <!-- Populated dynamically via JS for Ø10 to Ø60 -->
         </div>
       </div>
 
       <div class="modal-footer">
-        <button type="button" id="deleteLogBtn" class="btn-danger-outline">Hapus Data</button>
+        <div class="footer-left">
+          <button type="button" id="modalViewPhotoBtn" class="btn-photo-link">📷 Lihat Foto Asli</button>
+          <button type="button" id="deleteLogBtn" class="btn-danger-outline">Hapus Data</button>
+        </div>
         <button type="button" id="saveMatrixBtn" class="btn-primary-gradient">Simpan Perubahan</button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL FOTO VIEWER -->
-  <div id="photoModal" class="modal-backdrop" style="display: none;">
-    <div class="modal-card photo-modal-card">
-      <div class="modal-header">
-        <h3 id="photoModalTitle">Foto Form Fisik</h3>
-        <button id="closePhotoModalBtn" class="modal-close">&times;</button>
-      </div>
-      <div class="photo-container">
-        <img id="modalPhotoImage" src="" alt="Foto Form Fisik">
-      </div>
+  <!-- FULLSCREEN LANDSCAPE PHOTO VIEWER -->
+  <div id="photoModal" class="fullscreen-photo-modal" style="display: none;">
+    <!-- Small Translucent Floating Close Button (Top Right) -->
+    <button id="closePhotoModalBtn" class="btn-float-close" title="Tutup Foto">&times;</button>
+
+    <!-- Toolbar Controls -->
+    <div class="fullscreen-photo-toolbar">
+      <span id="fullscreenPhotoTitle" class="fullscreen-title">Foto Form Fisik</span>
+      <button id="rotatePhotoBtn" class="btn-tool-rotate">🔄 Landscape / Rotate 90°</button>
+    </div>
+
+    <div class="fullscreen-photo-container">
+      <img id="modalPhotoImage" src="" alt="Foto Form Fisik">
     </div>
   </div>
 
