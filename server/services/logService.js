@@ -1,9 +1,8 @@
 /**
  * LogService — Handles data layer and domain logic for form logs.
- * Designed to be DRY, testable, and decouples DB operations from HTTP routes.
  */
 
-function parseJSON(str, fallback = []) {
+function parseJSON(str, fallback = null) {
   if (!str) return fallback;
   if (typeof str === 'object') return str;
   try {
@@ -15,14 +14,15 @@ function parseJSON(str, fallback = []) {
 
 function stringifyJSON(obj) {
   if (typeof obj === 'string') return obj;
-  return JSON.stringify(obj || []);
+  return JSON.stringify(obj || {});
 }
 
 function formatRecord(row) {
   if (!row) return null;
   return {
     ...row,
-    diameter_detail: parseJSON(row.diameter_detail, [])
+    diameter_detail: parseJSON(row.diameter_detail, []),
+    marking_s: parseJSON(row.marking_s, { pecah: 0, lapuk: 0, bengkok: 0, bontos_ganda: 0, mata_kayu: 0, total_s: 0 })
   };
 }
 
@@ -31,21 +31,32 @@ class LogService {
     this.db = db;
   }
 
-  getLogs({ q = '', page = 1, limit = 25 } = {}) {
+  getLogs({ q = '', panjang = '', page = 1, limit = 25 } = {}) {
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.max(1, parseInt(limit, 10) || 25);
     const offset = (pageNum - 1) * limitNum;
 
     let countSql = 'SELECT COUNT(*) as total FROM form_logs';
     let dataSql = 'SELECT * FROM form_logs';
+    const whereConditions = [];
     const params = [];
 
     if (q && q.trim() !== '') {
-      const searchWhere = ' WHERE no_lapen LIKE ? OR no_kendaraan LIKE ? OR block LIKE ? OR nama_checker LIKE ?';
+      // Search strictly on No. SAP / Lapen and No. Mobil / Kendaraan
+      whereConditions.push('(no_lapen LIKE ? OR no_kendaraan LIKE ?)');
+      const searchPattern = `%${q.trim()}%`;
+      params.push(searchPattern, searchPattern);
+    }
+
+    if (panjang && panjang.trim() !== '' && panjang !== 'all') {
+      whereConditions.push('panjang_log LIKE ?');
+      params.push(`%${panjang.trim()}%`);
+    }
+
+    if (whereConditions.length > 0) {
+      const searchWhere = ' WHERE ' + whereConditions.join(' AND ');
       countSql += searchWhere;
       dataSql += searchWhere;
-      const searchPattern = `%${q.trim()}%`;
-      params.push(searchPattern, searchPattern, searchPattern, searchPattern);
     }
 
     dataSql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
@@ -80,6 +91,7 @@ class LogService {
       tanggal = new Date().toISOString().split('T')[0],
       jumlah_batang = 0,
       diameter_detail = [],
+      marking_s = { pecah: 0, lapuk: 0, bengkok: 0, bontos_ganda: 0, mata_kayu: 0, total_s: 0 },
       total = 0,
       foto_path = '',
       confidence_score = 1.0,
@@ -89,12 +101,13 @@ class LogService {
     const stmt = this.db.prepare(`
       INSERT INTO form_logs (
         no_lapen, no_kendaraan, panjang_log, block, nama_checker, tanggal,
-        jumlah_batang, diameter_detail, total, foto_path,
+        jumlah_batang, diameter_detail, marking_s, total, foto_path,
         confidence_score, status_verifikasi
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const jsonDetail = stringifyJSON(diameter_detail);
+    const jsonMarking = stringifyJSON(marking_s);
 
     const info = stmt.run(
       no_lapen,
@@ -105,6 +118,7 @@ class LogService {
       tanggal,
       jumlah_batang,
       jsonDetail,
+      jsonMarking,
       total,
       foto_path,
       confidence_score,
@@ -122,6 +136,10 @@ class LogService {
       ? stringifyJSON(updateData.diameter_detail)
       : existing.diameter_detail;
 
+    const jsonMarking = updateData.marking_s !== undefined
+      ? stringifyJSON(updateData.marking_s)
+      : existing.marking_s;
+
     const stmt = this.db.prepare(`
       UPDATE form_logs SET
         no_lapen = ?,
@@ -132,6 +150,7 @@ class LogService {
         tanggal = ?,
         jumlah_batang = ?,
         diameter_detail = ?,
+        marking_s = ?,
         total = ?,
         foto_path = COALESCE(?, foto_path),
         status_verifikasi = ?,
@@ -148,6 +167,7 @@ class LogService {
       updateData.tanggal !== undefined ? updateData.tanggal : existing.tanggal,
       updateData.jumlah_batang !== undefined ? updateData.jumlah_batang : existing.jumlah_batang,
       jsonDetail,
+      jsonMarking,
       updateData.total !== undefined ? updateData.total : existing.total,
       updateData.foto_path || null,
       updateData.status_verifikasi || 'edited',

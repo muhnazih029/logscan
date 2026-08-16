@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#881337">
-  <meta name="description" content="LogScan — Digital Checking Form Log Kayu">
-  <title>LogScan — Form Checking Log Kayu</title>
+  <meta name="theme-color" content="#9e1b1b">
+  <meta name="description" content="LogScan — Sampoerna Kayoe Digital Checking Form Log">
+  <title>LogScan — Sampoerna Kayoe</title>
   
   <!-- PWA Manifest -->
   <link rel="manifest" href="/manifest.json">
@@ -20,11 +20,11 @@
   <!-- Cropper.js CSS -->
   <link rel="stylesheet" href="/vendor/cropper.min.css">
   
-  <link rel="stylesheet" href="/style.css?v=2.0.0">
+  <link rel="stylesheet" href="/style.css?v=2.2.0">
 </head>
 <body>
 
-  <!-- Top App Header (Crimson Blood Red Brand) -->
+  <!-- Top App Header (Sampoerna Kayoe Heritage) -->
   <header class="app-header">
     <div class="brand">
       <div class="brand-logo">
@@ -35,7 +35,7 @@
       </div>
       <div>
         <h1 class="brand-title">LogScan</h1>
-        <p class="brand-subtitle">PT Sumber Graha Sejahtera</p>
+        <p class="brand-subtitle">SAMPOERNA KAYOE — Unit Semarang</p>
       </div>
     </div>
     <div class="header-actions">
@@ -62,7 +62,7 @@
         </div>
         <div class="scan-btn-text">
           <span class="scan-label">Ambil Foto Form Baru</span>
-          <span class="scan-sub">Ambil foto -> Potong area form -> Gemini AI ekstrak otomatis</span>
+          <span class="scan-sub">Fokuskan kertas form -> Gemini AI ekstrak otomatis</span>
         </div>
       </button>
 
@@ -72,8 +72,15 @@
           <circle cx="11" cy="11" r="8"/>
           <line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-        <input type="text" id="searchInput" placeholder="Cari No. SAP atau No. Mobil (misal: 9393, AA 8979)...">
+        <input type="text" id="searchInput" placeholder="Cari No. SAP atau No. Mobil (contoh: 9393, AA 8979)...">
         <button id="clearSearchBtn" class="btn-clear-search" style="display: none;">&times;</button>
+      </div>
+
+      <!-- Length Filter Tabs (130 CM / 260 CM) -->
+      <div class="panjang-filter-tabs">
+        <button class="tab-filter-btn active" data-panjang="all">Semua Panjang</button>
+        <button class="tab-filter-btn" data-panjang="260 CM">🌲 260 CM</button>
+        <button class="tab-filter-btn" data-panjang="130 CM">🪵 130 CM</button>
       </div>
     </div>
   </section>
@@ -151,7 +158,7 @@
     <div class="modal-card matrix-modal-card">
       <div class="modal-header">
         <div>
-          <h3 id="matrixModalTitle">Rincian Diameter Log</h3>
+          <h3 id="matrixModalTitle">Rincian Form Log Kayu</h3>
           <p class="modal-subtitle">No. SAP: <strong id="matrixModalSap">-</strong> | Mobil: <strong id="matrixModalNopol">-</strong></p>
         </div>
         <button id="closeMatrixModalBtn" class="modal-close">&times;</button>
@@ -186,19 +193,62 @@
           </div>
         </div>
 
-        <!-- Diameter Tally Matrix (Ø 10 - Ø 60) -->
-        <div class="matrix-section-header">
-          <div class="matrix-section-title">
-            <h4>Matriks Jumlah per Diameter Ø (cm)</h4>
-            <small>Highlight merah = ada batang kayu (> 0)</small>
-          </div>
-          <button id="toggleZeroFilterBtn" class="btn-toggle-filter" data-filter="all">
-            <span>Hanya Ada Batang (Qty > 0)</span>
-          </button>
+        <!-- Section Tabs: Diameter Matrix vs Marking "S" Cacat Kayu -->
+        <div class="detail-tab-nav">
+          <button type="button" class="modal-tab-btn active" id="tabDiameterBtn">Matriks Diameter Ø</button>
+          <button type="button" class="modal-tab-btn" id="tabMarkingSBtn">Marking "S" (Cacat Kayu)</button>
         </div>
 
-        <div id="diameterMatrixGrid" class="matrix-grid">
-          <!-- Populated dynamically via JS for Ø10 to Ø60 -->
+        <!-- Tab 1: Diameter Tally Matrix (Ø 10 - Ø 60) -->
+        <div id="tabContentDiameter" class="tab-pane active">
+          <div class="matrix-section-header">
+            <div class="matrix-section-title">
+              <h4>Matriks Jumlah per Diameter Ø (cm)</h4>
+              <small>Highlight merah = ada batang kayu (> 0)</small>
+            </div>
+            <button id="toggleZeroFilterBtn" class="btn-toggle-filter" data-filter="all">
+              <span>Hanya Ada Batang (Qty > 0)</span>
+            </button>
+          </div>
+
+          <div id="diameterMatrixGrid" class="matrix-grid">
+            <!-- Populated dynamically via JS for Ø10 to Ø60 -->
+          </div>
+        </div>
+
+        <!-- Tab 2: Marking "S" Cacat Kayu -->
+        <div id="tabContentMarkingS" class="tab-pane" style="display: none;">
+          <div class="matrix-section-title" style="margin-bottom: 14px;">
+            <h4>Rincian Cacat Kayu (Marking "S")</h4>
+            <small>Kuantitas batang log kayu dengan kategori cacat fisik</small>
+          </div>
+
+          <div class="marking-s-grid">
+            <div class="marking-item">
+              <label>Pecah</label>
+              <input type="number" id="msPecah" min="0" value="0">
+            </div>
+            <div class="marking-item">
+              <label>Lapuk</label>
+              <input type="number" id="msLapuk" min="0" value="0">
+            </div>
+            <div class="marking-item">
+              <label>Bengkok</label>
+              <input type="number" id="msBengkok" min="0" value="0">
+            </div>
+            <div class="marking-item">
+              <label>Bontos Ganda</label>
+              <input type="number" id="msBontos" min="0" value="0">
+            </div>
+            <div class="marking-item">
+              <label>Mata Kayu</label>
+              <input type="number" id="msMata" min="0" value="0">
+            </div>
+            <div class="marking-item total-s-item">
+              <label>Total Cacat "S"</label>
+              <span id="msTotalDisplay">0 batang</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -233,6 +283,6 @@
 
   <!-- Cropper.js Script -->
   <script src="/vendor/cropper.min.js"></script>
-  <script src="/app.js?v=2.0.0"></script>
+  <script src="/app.js?v=2.2.0"></script>
 </body>
 </html>

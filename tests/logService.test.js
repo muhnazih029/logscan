@@ -16,6 +16,7 @@ function createTestDb() {
       tanggal           DATE,
       jumlah_batang     INTEGER,
       diameter_detail   TEXT,
+      marking_s         TEXT,
       total             INTEGER,
       foto_path         TEXT,
       confidence_score  REAL,
@@ -70,10 +71,10 @@ describe('LogService Unit Tests', () => {
     assert.equal(resultSearch.data.length, 2);
     assert.equal(resultSearch.pagination.total, 2);
 
-    // Search query 'Zain'
-    const resultChecker = logService.getLogs({ q: 'Zain' });
-    assert.equal(resultChecker.data.length, 1);
-    assert.equal(resultChecker.data[0].nama_checker, 'Zain');
+    // Search query '9393'
+    const resultSearchNo = logService.getLogs({ q: '9393' });
+    assert.equal(resultSearchNo.data.length, 1);
+    assert.equal(resultSearchNo.data[0].no_lapen, '9393');
 
     // Pagination limit test
     const pageResult = logService.getLogs({ page: 1, limit: 2 });

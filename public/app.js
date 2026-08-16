@@ -1,5 +1,5 @@
 /**
- * LogScan — Crimson Blood Red High-End Mobile PWA Application Logic
+ * LogScan — Sampoerna Kayoe High-End Ergonomic Mobile PWA Logic
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let searchDebounceTimer = null;
   let activeLogData = null; // currently selected log record
   let currentDiameterDetail = []; // array of { d: number, qty: number }
+  let currentMarkingS = { pecah: 0, lapuk: 0, bengkok: 0, bontos_ganda: 0, mata_kayu: 0, total_s: 0 };
+  let activePanjangFilter = 'all'; // 'all', '260 CM', '130 CM'
   let cropperInstance = null; // Cropper.js instance
   let showOnlyActiveFilter = false; // toggle zero filter
 
@@ -36,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const confirmCropBtn = document.getElementById('confirmCropBtn');
   const rotateCropBtn = document.getElementById('rotateCropBtn');
 
-  // Matrix Modal Elements
+  // Matrix & Marking S Modal Elements
   const matrixModal = document.getElementById('matrixModal');
   const closeMatrixModalBtn = document.getElementById('closeMatrixModalBtn');
   const matrixModalSap = document.getElementById('matrixModalSap');
@@ -45,8 +47,23 @@ document.addEventListener('DOMContentLoaded', () => {
   const editNopolInput = document.getElementById('editNopolInput');
   const editPanjangInput = document.getElementById('editPanjangInput');
   const matrixTotalDisplay = document.getElementById('matrixTotalDisplay');
+  
+  const tabDiameterBtn = document.getElementById('tabDiameterBtn');
+  const tabMarkingSBtn = document.getElementById('tabMarkingSBtn');
+  const tabContentDiameter = document.getElementById('tabContentDiameter');
+  const tabContentMarkingS = document.getElementById('tabContentMarkingS');
+
   const diameterMatrixGrid = document.getElementById('diameterMatrixGrid');
   const toggleZeroFilterBtn = document.getElementById('toggleZeroFilterBtn');
+  
+  // Marking S Inputs
+  const msPecah = document.getElementById('msPecah');
+  const msLapuk = document.getElementById('msLapuk');
+  const msBengkok = document.getElementById('msBengkok');
+  const msBontos = document.getElementById('msBontos');
+  const msMata = document.getElementById('msMata');
+  const msTotalDisplay = document.getElementById('msTotalDisplay');
+
   const saveMatrixBtn = document.getElementById('saveMatrixBtn');
   const deleteLogBtn = document.getElementById('deleteLogBtn');
   const modalViewPhotoBtn = document.getElementById('modalViewPhotoBtn');
@@ -91,10 +108,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const dot = document.querySelector('.status-dot');
     if (navigator.onLine) {
       statusText.textContent = 'Online';
-      dot.style.backgroundColor = '#f43f5e';
+      dot.style.backgroundColor = '#d9a738';
     } else {
       statusText.textContent = 'Offline';
-      dot.style.backgroundColor = '#94a3b8';
+      dot.style.backgroundColor = '#78716c';
     }
   }
   window.addEventListener('online', updateOnlineStatus);
@@ -114,7 +131,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Open Crop Modal for user to crop/zoom area
     const reader = new FileReader();
     reader.onload = (e) => {
       openCropModal(e.target.result);
@@ -188,14 +204,14 @@ document.addEventListener('DOMContentLoaded', () => {
     formData.append('foto', imageBlob, `form_crop_${Date.now()}.jpg`);
 
     try {
-      updateProgress(50, 'Menganalisis Form via Gemini Vision AI...', 'Membaca No. SAP & matriks diameter log...');
+      updateProgress(50, 'Menganalisis Form via Gemini Vision AI...', 'Membaca No. SAP & rincian diameter log...');
 
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData
       });
 
-      updateProgress(85, 'Memproses Hasil Extraksi...', 'Menyiapkan rincian diameter log...');
+      updateProgress(85, 'Memproses Hasil Extraksi...', 'Menyiapkan rincian diameter & Marking S...');
 
       const result = await response.json();
       if (!result.success) throw new Error(result.error || 'Gagal mengekstrak foto');
@@ -227,7 +243,17 @@ document.addEventListener('DOMContentLoaded', () => {
     progressSub.textContent = sub;
   }
 
-  // --- 4. Log Feed Loading & Search ---
+  // --- 4. Length Filter Tabs & Search ---
+  document.querySelectorAll('.tab-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activePanjangFilter = btn.getAttribute('data-panjang');
+      currentPage = 1;
+      loadLogFeed();
+    });
+  });
+
   searchInput.addEventListener('input', () => {
     clearSearchBtn.style.display = searchInput.value ? 'block' : 'none';
     clearTimeout(searchDebounceTimer);
@@ -262,8 +288,10 @@ document.addEventListener('DOMContentLoaded', () => {
     logFeedContainer.innerHTML = '<div class="empty-feed"><span class="spinner-lg"></span><p style="margin-top:12px">Memuat data log...</p></div>';
 
     const query = encodeURIComponent(searchInput.value.trim());
+    const panjangParam = activePanjangFilter !== 'all' ? `&panjang=${encodeURIComponent(activePanjangFilter)}` : '';
+    
     try {
-      const response = await fetch(`/api/logs?q=${query}&page=${currentPage}&limit=25`);
+      const response = await fetch(`/api/logs?q=${query}${panjangParam}&page=${currentPage}&limit=25`);
       const result = await response.json();
 
       if (!result.success) throw new Error(result.error);
@@ -300,6 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderLogCard(row) {
     const diameterDetails = Array.isArray(row.diameter_detail) ? row.diameter_detail : [];
+    const markingS = row.marking_s || {};
     
     // Generate diameter pill tags
     let pillsHtml = '';
@@ -313,6 +342,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } else {
       pillsHtml = '<span class="dia-pill" style="color:#94a3b8">Belum ada rincian diameter</span>';
+    }
+
+    // Marking S Pill tag if total_s > 0
+    let markingSPill = '';
+    if (markingS.total_s > 0) {
+      markingSPill = `<div class="marking-s-pill-row"><span class="marking-s-pill">⚠️ Cacat S: ${markingS.total_s} btg</span></div>`;
     }
 
     const badgeClass = row.status_verifikasi === 'auto' ? 'badge-auto' : (row.status_verifikasi === 'edited' ? 'badge-edited' : 'badge-manual');
@@ -334,11 +369,13 @@ document.addEventListener('DOMContentLoaded', () => {
           ${pillsHtml}
         </div>
 
+        ${markingSPill}
+
         <div class="card-footer-row">
           <span class="badge-status ${badgeClass}">${row.status_verifikasi || 'manual'}</span>
           <div class="card-actions">
             ${row.foto_path ? `<button class="btn-card-action btn-view-photo" data-foto="${row.foto_path}">📷 Foto</button>` : ''}
-            <button class="btn-card-action btn-edit-matrix">📊 Matriks Diameter</button>
+            <button class="btn-card-action btn-edit-matrix">📊 Detail Form</button>
           </div>
         </div>
       </div>
@@ -362,16 +399,25 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- 5. Diameter Tally Matrix Grid Editor (Highlight Active vs Zero) ---
+  // --- 5. Detail Modal (Diameter Matrix & Marking S Tabs) ---
   function openMatrixModal(logData) {
     activeLogData = logData;
     currentDiameterDetail = Array.isArray(logData.diameter_detail) ? [...logData.diameter_detail] : [];
+    currentMarkingS = logData.marking_s || { pecah: 0, lapuk: 0, bengkok: 0, bontos_ganda: 0, mata_kayu: 0, total_s: 0 };
 
     matrixModalSap.textContent = logData.no_lapen || '-';
     matrixModalNopol.textContent = logData.no_kendaraan || '-';
     editSapInput.value = logData.no_lapen || '';
     editNopolInput.value = logData.no_kendaraan || '';
     editPanjangInput.value = logData.panjang_log || '260 CM';
+
+    // Set Marking S inputs
+    msPecah.value = currentMarkingS.pecah || 0;
+    msLapuk.value = currentMarkingS.lapuk || 0;
+    msBengkok.value = currentMarkingS.bengkok || 0;
+    msBontos.value = currentMarkingS.bontos_ganda || 0;
+    msMata.value = currentMarkingS.mata_kayu || 0;
+    updateMarkingSTotalDisplay();
 
     // Show/hide view photo button in modal footer
     if (logData.foto_path) {
@@ -380,8 +426,44 @@ document.addEventListener('DOMContentLoaded', () => {
       modalViewPhotoBtn.style.display = 'none';
     }
 
+    // Default tab
+    switchTab('diameter');
     renderMatrixGrid();
     matrixModal.style.display = 'flex';
+  }
+
+  // Tab Switching
+  tabDiameterBtn.addEventListener('click', () => switchTab('diameter'));
+  tabMarkingSBtn.addEventListener('click', () => switchTab('markingS'));
+
+  function switchTab(tabName) {
+    if (tabName === 'diameter') {
+      tabDiameterBtn.classList.add('active');
+      tabMarkingSBtn.classList.remove('active');
+      tabContentDiameter.style.display = 'block';
+      tabContentMarkingS.style.display = 'none';
+    } else {
+      tabMarkingSBtn.classList.add('active');
+      tabDiameterBtn.classList.remove('active');
+      tabContentMarkingS.style.display = 'block';
+      tabContentDiameter.style.display = 'none';
+    }
+  }
+
+  // Marking S Input Change Listeners
+  [msPecah, msLapuk, msBengkok, msBontos, msMata].forEach(input => {
+    input.addEventListener('input', updateMarkingSTotalDisplay);
+  });
+
+  function updateMarkingSTotalDisplay() {
+    const pecah = parseInt(msPecah.value, 10) || 0;
+    const lapuk = parseInt(msLapuk.value, 10) || 0;
+    const bengkok = parseInt(msBengkok.value, 10) || 0;
+    const bontos = parseInt(msBontos.value, 10) || 0;
+    const mata = parseInt(msMata.value, 10) || 0;
+    const totalS = pecah + lapuk + bengkok + bontos + mata;
+    msTotalDisplay.textContent = `${totalS} batang`;
+    currentMarkingS = { pecah, lapuk, bengkok, bontos_ganda: bontos, mata_kayu: mata, total_s: totalS };
   }
 
   toggleZeroFilterBtn.addEventListener('click', () => {
@@ -427,7 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (cells.length === 0 && showOnlyActiveFilter) {
-      diameterMatrixGrid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px; color:#94a3b8">Belum ada rincian batang kayu. Matikan filter untuk menambah diameter.</div>';
+      diameterMatrixGrid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px; color:#78716c">Belum ada rincian batang kayu. Matikan filter untuk menambah diameter.</div>';
     } else {
       diameterMatrixGrid.innerHTML = cells.join('');
     }
@@ -505,12 +587,14 @@ document.addEventListener('DOMContentLoaded', () => {
       .sort((a, b) => a.d - b.d);
 
     const calculatedTotal = validDetails.reduce((sum, item) => sum + item.qty, 0);
+    updateMarkingSTotalDisplay();
 
     const payload = {
       no_lapen: editSapInput.value.trim(),
       no_kendaraan: editNopolInput.value.trim(),
       panjang_log: editPanjangInput.value.trim() || '260 CM',
       diameter_detail: validDetails,
+      marking_s: currentMarkingS,
       jumlah_batang: calculatedTotal,
       total: calculatedTotal,
       status_verifikasi: 'edited'
