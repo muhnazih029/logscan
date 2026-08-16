@@ -1,17 +1,15 @@
 /**
- * Gemini Vision AI module — Uses Google Gemini Flash for high-accuracy form extraction.
+ * Gemini Vision AI module — Uses Google Gemini Flash with Region Crop ROI for high-accuracy form extraction.
  */
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs');
 const path = require('path');
+const sharp = require('sharp');
 const dotenv = require('dotenv');
 
 dotenv.config();
 
-/**
- * Gets a fresh instance of GoogleGenerativeAI using current process.env.GEMINI_API_KEY
- */
 function getGenAI() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === 'your_gemini_api_key_here' || apiKey.trim() === '') {
@@ -20,9 +18,6 @@ function getGenAI() {
   return new GoogleGenerativeAI(apiKey.trim());
 }
 
-/**
- * Detects MIME type from file extension
- */
 function getMimeType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
   if (ext === '.png') return 'image/png';
@@ -30,9 +25,6 @@ function getMimeType(filePath) {
   return 'image/jpeg';
 }
 
-/**
- * Converts local file to GoogleGenerativeAI Part object
- */
 function fileToGenerativePart(filePath) {
   const mimeType = getMimeType(filePath);
   return {
@@ -44,7 +36,35 @@ function fileToGenerativePart(filePath) {
 }
 
 /**
- * Extracts structured form data using Gemini Vision model
+ * Generates a cropped image slice of the right section (ACTUAL MARKING S table) for zoomed AI vision
+ */
+async function generateMarkingSRoi(inputPath) {
+  const tempPath = path.join(path.dirname(inputPath), `roi_ms_${Date.now()}_${path.basename(inputPath)}`);
+  try {
+    const metadata = await sharp(inputPath).metadata();
+    const width = metadata.width || 1000;
+    const height = metadata.height || 1000;
+
+    // Right 55% width, starting from top 15% to bottom 85%
+    const cropLeft = Math.round(width * 0.45);
+    const cropTop = Math.round(height * 0.15);
+    const cropWidth = Math.round(width * 0.55);
+    const cropHeight = Math.round(height * 0.75);
+
+    await sharp(inputPath)
+      .rotate()
+      .extract({ left: cropLeft, top: cropTop, width: cropWidth, height: cropHeight })
+      .toFile(tempPath);
+
+    return tempPath;
+  } catch (e) {
+    console.warn('[Gemini ROI Crop Error]', e.message);
+    return null;
+  }
+}
+
+/**
+ * Extracts structured form data using Gemini Vision model with dual image parts (Full Form + Zoomed Marking S ROI)
  * @param {string} imagePath 
  * @returns {Promise<{ fields: object, confidence: number, rawText: string }>}
  */
@@ -59,11 +79,18 @@ async function extractWithGemini(imagePath) {
     throw new Error(`File foto tidak ditemukan: ${imagePath}`);
   }
 
-  const imagePart = fileToGenerativePart(fullPath);
+  const fullImagePart = fileToGenerativePart(fullPath);
+  const roiPath = await generateMarkingSRoi(fullPath);
+  const contents = [fullImagePart];
+
+  if (roiPath && fs.existsSync(roiPath)) {
+    contents.push(fileToGenerativePart(roiPath));
+  }
 
   const prompt = `
 Kamu adalah sistem Visi AI presisi tinggi untuk pabrik kayu lapis PT SUMBER GRAHA SEJAHTERA (Sampoerna Kayoe).
-Analisis foto dokumen fisik "FORM CHECKING ULANG PANJANG LOG" ini dan ekstrak data ke dalam format JSON murni TANPA markdown/backticks/teks tambahan:
+Analisis foto dokumen fisik "FORM CHECKING ULANG PANJANG LOG" ini (Gambar 1 = Form Lengkap, Gambar 2 = Perbesaran Tabel ACTUAL MARKING S).
+Ekstrak data ke dalam format JSON murni TANPA markdown/backticks/teks tambahan:
 
 {
   "no_lapen": "9393",
@@ -77,52 +104,47 @@ Analisis foto dokumen fisik "FORM CHECKING ULANG PANJANG LOG" ini dan ekstrak da
     {"d": 26, "qty": 4},
     {"d": 27, "qty": 10},
     {"d": 28, "qty": 5},
-    {"d": 29, "qty": 1},
-    {"d": 30, "qty": 5},
-    {"d": 31, "qty": 2},
-    {"d": 32, "qty": 1},
-    {"d": 33, "qty": 3}
+    {"d": 30, "qty": 5}
   ],
   "marking_s": {
     "pecah": 1,
-    "lapuk": 2,
+    "lapuk": 1,
     "bengkok": 0,
     "bontos_ganda": 0,
     "mata_kayu": 0,
-    "total_s": 3,
+    "total_s": 2,
     "details": [
       {"d": 28, "jenis": "pecah", "qty": 1},
-      {"d": 30, "jenis": "lapuk", "qty": 2}
+      {"d": 30, "jenis": "lapuk", "qty": 1}
     ]
   },
-  "total": 36
+  "total": 29
 }
 
 PETUNJUK ANALISIS VISUAL PRESISI:
 1. "no_lapen": Ambil angka di kotak "NO SAP" / "NO LAPEN" (contoh: 9393).
 2. "no_kendaraan": Ambil nomor polisi mobil di kotak "NO MOBIL" (contoh: AA 8979 IB).
 3. "panjang_log": Cek judul form di kanan atas, apakah "PANJANG LOG 260 CM" atau "PANJANG LOG 130 CM" (default: "260 CM").
-4. "block": Ambil kode block jika ada (contoh: D.16 atau B.16).
-5. "nama_checker": Ambil nama checker jika ada.
-6. "diameter_detail" (TABEL GRADE A / KIRI):
-   - Baca turus (||||) atau angka jumlah di kolom JML sebelah kanan baris diameter Ø.
-7. "marking_s" (TABEL ACTUAL / MARKING "S" / KANAN):
-   - Baca kolom PECAH, LAPUK, BENGKOK, BONTOS GANDA, MATA KAYU per diameter Ø.
-   - Cantumkan total ringkasan dan rincian per diameter di array "details" jika ada cacat kayu "S".
-8. "total": Total keseluruhan jumlah batang log kayu Grade A.
-9. HANYA kembalikan JSON murni.
+4. "diameter_detail" (TABEL GRADE A / KIRI):
+   - Baca turus (||||) atau angka di kolom JML sebelah kanan baris diameter Ø.
+5. "marking_s" (TABEL ACTUAL MARKING "S" / KANAN):
+   - Perhatikan Gambar 2 (Zoomed ROI Tabel Marking S).
+   - Di bawah kolom PECAH, LAPUK, BENGKOK, BONTOS GANDA, MATA KAYU, cek baris diameter Ø berapa yang terdapat turus | atau angka.
+   - Cantumkan rincian lengkapnya di array "details" (contoh: {"d": 28, "jenis": "pecah", "qty": 1}).
+6. HANYA kembalikan JSON murni.
 `;
 
-  // Try available Gemini Flash model candidates
+  contents.unshift(prompt);
+
   const modelCandidates = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.6-flash'];
   let lastError = null;
   let responseText = null;
 
   for (const modelName of modelCandidates) {
     try {
-      console.log(`[Gemini AI] Trying model: ${modelName}`);
+      console.log(`[Gemini AI] Trying model: ${modelName} with Dual ROI...`);
       const model = genAI.getGenerativeModel({ model: modelName });
-      const result = await model.generateContent([prompt, imagePart]);
+      const result = await model.generateContent(contents);
       responseText = result.response.text().trim();
       if (responseText) {
         console.log(`[Gemini AI] Success with model: ${modelName}`);
@@ -134,11 +156,15 @@ PETUNJUK ANALISIS VISUAL PRESISI:
     }
   }
 
+  // Cleanup temporary ROI file
+  if (roiPath && fs.existsSync(roiPath)) {
+    try { fs.unlinkSync(roiPath); } catch (e) {}
+  }
+
   if (!responseText) {
     throw lastError || new Error('Semua model Gemini Flash gagal merespons');
   }
 
-  // Clean potential markdown quotes or formatting
   const cleanedJson = responseText
     .replace(/^```json/i, '')
     .replace(/^```/i, '')
@@ -147,7 +173,6 @@ PETUNJUK ANALISIS VISUAL PRESISI:
 
   const parsedData = JSON.parse(cleanedJson);
 
-  // Normalize diameter detail array
   let diameterDetail = [];
   if (Array.isArray(parsedData.diameter_detail)) {
     diameterDetail = parsedData.diameter_detail
@@ -158,8 +183,13 @@ PETUNJUK ANALISIS VISUAL PRESISI:
       .filter(item => !isNaN(item.d) && item.qty > 0);
   }
 
-  // Normalize marking_s object
   const msRaw = parsedData.marking_s || {};
+  let msDetails = Array.isArray(msRaw.details) ? msRaw.details.map(item => ({
+    d: parseInt(item.d, 10) || 0,
+    jenis: String(item.jenis || 'pecah').toLowerCase().trim(),
+    qty: parseInt(item.qty, 10) || 1
+  })).filter(i => i.d > 0 && i.qty > 0) : [];
+
   const marking_s = {
     pecah: parseInt(msRaw.pecah, 10) || 0,
     lapuk: parseInt(msRaw.lapuk, 10) || 0,
@@ -167,11 +197,11 @@ PETUNJUK ANALISIS VISUAL PRESISI:
     bontos_ganda: parseInt(msRaw.bontos_ganda || msRaw.bontos, 10) || 0,
     mata_kayu: parseInt(msRaw.mata_kayu, 10) || 0,
     total_s: parseInt(msRaw.total_s || msRaw.total, 10) || 0,
-    details: Array.isArray(msRaw.details) ? msRaw.details : []
+    details: msDetails
   };
 
-  if (marking_s.total_s === 0) {
-    marking_s.total_s = marking_s.pecah + marking_s.lapuk + marking_s.bengkok + marking_s.bontos_ganda + marking_s.mata_kayu;
+  if (marking_s.total_s === 0 && msDetails.length > 0) {
+    marking_s.total_s = msDetails.reduce((sum, item) => sum + item.qty, 0);
   }
 
   const calculatedTotal = diameterDetail.reduce((sum, item) => sum + item.qty, 0);

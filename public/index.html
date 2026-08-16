@@ -223,14 +223,25 @@
           </div>
         </div>
 
-        <!-- Tab 2: Marking "S" Cacat Kayu -->
+        <!-- Tab 2: Marking "S" Cacat Kayu Per Diameter -->
         <div id="tabContentMarkingS" class="tab-pane" style="display: none;">
-          <div class="matrix-section-title" style="margin-bottom: 14px;">
-            <h4>Rincian Cacat Kayu (Marking "S")</h4>
-            <small>Kuantitas batang log kayu dengan kategori cacat fisik</small>
+          <div class="matrix-section-title" style="margin-bottom: 12px;">
+            <h4>Rincian Cacat Kayu per Diameter Ø (Marking "S")</h4>
+            <small>Pilih jenis cacat kayu untuk mengedit kuantitas per ukuran diameter</small>
           </div>
 
-          <div class="marking-s-grid">
+          <!-- Category Selector Chips -->
+          <div class="marking-category-bar">
+            <button type="button" class="ms-cat-btn active" data-cat="all">⚡ Ringkasan</button>
+            <button type="button" class="ms-cat-btn" data-cat="pecah">🔴 Pecah</button>
+            <button type="button" class="ms-cat-btn" data-cat="lapuk">🟤 Lapuk</button>
+            <button type="button" class="ms-cat-btn" data-cat="bengkok">🟡 Bengkok</button>
+            <button type="button" class="ms-cat-btn" data-cat="bontos_ganda">🟠 Bontos Ganda</button>
+            <button type="button" class="ms-cat-btn" data-cat="mata_kayu">🟢 Mata Kayu</button>
+          </div>
+
+          <!-- Summary Summary Cards -->
+          <div class="marking-s-grid" id="markingSummaryGrid">
             <div class="marking-item">
               <label>Pecah</label>
               <input type="number" id="msPecah" min="0" value="0">
@@ -254,6 +265,16 @@
             <div class="marking-item total-s-item">
               <label>Total Cacat "S"</label>
               <span id="msTotalDisplay">0 batang</span>
+            </div>
+          </div>
+
+          <!-- Per-Diameter Defect Matrix Grid -->
+          <div id="markingPerDiaSection" style="margin-top: 16px; display: none;">
+            <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-main); margin-bottom: 8px;" id="msPerDiaTitle">
+              Matriks Diameter untuk Pecah
+            </div>
+            <div id="markingPerDiaGrid" class="matrix-grid">
+              <!-- Populated dynamically via JS -->
             </div>
           </div>
         </div>

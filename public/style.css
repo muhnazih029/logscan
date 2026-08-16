@@ -863,8 +863,40 @@ body {
 /* Marking S Grid */
 .marking-s-grid {
   display: grid;
-  grid-template-cols: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+/* Category Filter Bar for Marking S */
+.marking-category-bar {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  scrollbar-width: none;
+}
+
+.marking-category-bar::-webkit-scrollbar { display: none; }
+
+.ms-cat-btn {
+  padding: 6px 12px;
+  border-radius: var(--radius-inner);
+  border: 1px solid #d6d3d1;
+  background: #ffffff;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ms-cat-btn.active {
+  background: var(--sampoerna-red-800);
+  color: #ffffff;
+  border-color: var(--sampoerna-red-900);
+  box-shadow: 0 2px 6px rgba(158, 27, 27, 0.2);
 }
 
 .marking-item {

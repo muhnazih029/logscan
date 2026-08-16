@@ -466,13 +466,17 @@ document.addEventListener('DOMContentLoaded', () => {
     editNopolInput.value = logData.no_kendaraan === 'PROSES AI' ? '' : (logData.no_kendaraan || '');
     editPanjangInput.value = logData.panjang_log || '260 CM';
 
-    // Set Marking S inputs
+    // Set Marking S inputs & details
     msPecah.value = currentMarkingS.pecah || 0;
     msLapuk.value = currentMarkingS.lapuk || 0;
     msBengkok.value = currentMarkingS.bengkok || 0;
     msBontos.value = currentMarkingS.bontos_ganda || 0;
     msMata.value = currentMarkingS.mata_kayu || 0;
+    if (!Array.isArray(currentMarkingS.details)) {
+      currentMarkingS.details = [];
+    }
     updateMarkingSTotalDisplay();
+    switchMarkingSCategory('all');
 
     if (logData.foto_path) {
       modalViewPhotoBtn.style.display = 'inline-flex';
@@ -503,20 +507,166 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Marking S Input Change Listeners
-  [msPecah, msLapuk, msBengkok, msBontos, msMata].forEach(input => {
-    input.addEventListener('input', updateMarkingSTotalDisplay);
+  // Marking S Category Switcher
+  let activeMarkingSCat = 'all';
+
+  document.querySelectorAll('.ms-cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.ms-cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const cat = btn.getAttribute('data-cat');
+      switchMarkingSCategory(cat);
+    });
   });
 
-  function updateMarkingSTotalDisplay() {
-    const pecah = parseInt(msPecah.value, 10) || 0;
-    const lapuk = parseInt(msLapuk.value, 10) || 0;
-    const bengkok = parseInt(msBengkok.value, 10) || 0;
-    const bontos = parseInt(msBontos.value, 10) || 0;
-    const mata = parseInt(msMata.value, 10) || 0;
-    const totalS = pecah + lapuk + bengkok + bontos + mata;
+  function switchMarkingSCategory(cat) {
+    activeMarkingSCat = cat;
+    const summaryGrid = document.getElementById('markingSummaryGrid');
+    const perDiaSection = document.getElementById('markingPerDiaSection');
+    const titleEl = document.getElementById('msPerDiaTitle');
+
+    if (cat === 'all') {
+      summaryGrid.style.display = 'grid';
+      perDiaSection.style.display = 'none';
+    } else {
+      summaryGrid.style.display = 'none';
+      perDiaSection.style.display = 'block';
+
+      const catLabels = {
+        pecah: '🔴 Pecah',
+        lapuk: '🟤 Lapuk',
+        bengkok: '🟡 Bengkok',
+        bontos_ganda: '🟠 Bontos Ganda',
+        mata_kayu: '🟢 Mata Kayu'
+      };
+
+      titleEl.textContent = `Matriks Diameter untuk Cacat ${catLabels[cat] || cat}`;
+      renderMarkingSPerDiaGrid(cat);
+    }
+  }
+
+  function renderMarkingSPerDiaGrid(cat) {
+    const gridEl = document.getElementById('markingPerDiaGrid');
+    if (!gridEl) return;
+
+    if (!Array.isArray(currentMarkingS.details)) {
+      currentMarkingS.details = [];
+    }
+
+    const qtyMap = {};
+    currentMarkingS.details.forEach(item => {
+      if (item.jenis === cat) {
+        qtyMap[item.d] = item.qty;
+      }
+    });
+
+    const cells = [];
+    for (let d = 10; d <= 60; d++) {
+      const qty = qtyMap[d] || 0;
+      const isActive = qty > 0;
+      const cellClass = isActive ? 'matrix-cell cell-active' : 'matrix-cell cell-zero';
+
+      cells.push(`
+        <div class="${cellClass}">
+          <div class="matrix-label">Ø ${d} cm</div>
+          <div class="matrix-controls">
+            <button class="btn-qty btn-ms-minus" data-d="${d}">-</button>
+            <input type="number" class="matrix-qty-input ms-qty-input" data-d="${d}" value="${qty}" min="0">
+            <button class="btn-qty btn-ms-plus" data-d="${d}">+</button>
+          </div>
+        </div>
+      `);
+    }
+
+    gridEl.innerHTML = cells.join('');
+
+    gridEl.querySelectorAll('.btn-ms-minus').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const d = parseInt(btn.getAttribute('data-d'), 10);
+        updateMarkingSDetailQty(cat, d, -1);
+      });
+    });
+
+    gridEl.querySelectorAll('.btn-ms-plus').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const d = parseInt(btn.getAttribute('data-d'), 10);
+        updateMarkingSDetailQty(cat, d, 1);
+      });
+    });
+
+    gridEl.querySelectorAll('.ms-qty-input').forEach(input => {
+      input.addEventListener('change', () => {
+        const d = parseInt(input.getAttribute('data-d'), 10);
+        const val = parseInt(input.value, 10) || 0;
+        setMarkingSDetailQty(cat, d, val);
+      });
+    });
+  }
+
+  function updateMarkingSDetailQty(cat, diameter, delta) {
+    if (!Array.isArray(currentMarkingS.details)) currentMarkingS.details = [];
+    const idx = currentMarkingS.details.findIndex(i => i.jenis === cat && i.d === diameter);
+
+    if (idx >= 0) {
+      const newQty = Math.max(0, currentMarkingS.details[idx].qty + delta);
+      if (newQty === 0) {
+        currentMarkingS.details.splice(idx, 1);
+      } else {
+        currentMarkingS.details[idx].qty = newQty;
+      }
+    } else if (delta > 0) {
+      currentMarkingS.details.push({ d: diameter, jenis: cat, qty: delta });
+    }
+
+    recalculateMarkingSTotalsFromDetails();
+    renderMarkingSPerDiaGrid(cat);
+  }
+
+  function setMarkingSDetailQty(cat, diameter, qty) {
+    if (!Array.isArray(currentMarkingS.details)) currentMarkingS.details = [];
+    const idx = currentMarkingS.details.findIndex(i => i.jenis === cat && i.d === diameter);
+
+    if (qty <= 0) {
+      if (idx >= 0) currentMarkingS.details.splice(idx, 1);
+    } else {
+      if (idx >= 0) {
+        currentMarkingS.details[idx].qty = qty;
+      } else {
+        currentMarkingS.details.push({ d: diameter, jenis: cat, qty: qty });
+      }
+    }
+
+    recalculateMarkingSTotalsFromDetails();
+    renderMarkingSPerDiaGrid(cat);
+  }
+
+  function recalculateMarkingSTotalsFromDetails() {
+    if (!Array.isArray(currentMarkingS.details)) return;
+
+    const totals = { pecah: 0, lapuk: 0, bengkok: 0, bontos_ganda: 0, mata_kayu: 0 };
+    currentMarkingS.details.forEach(item => {
+      if (totals[item.jenis] !== undefined) {
+        totals[item.jenis] += item.qty;
+      }
+    });
+
+    msPecah.value = totals.pecah;
+    msLapuk.value = totals.lapuk;
+    msBengkok.value = totals.bengkok;
+    msBontos.value = totals.bontos_ganda;
+    msMata.value = totals.mata_kayu;
+
+    const totalS = totals.pecah + totals.lapuk + totals.bengkok + totals.bontos_ganda + totals.mata_kayu;
     msTotalDisplay.textContent = `${totalS} batang`;
-    currentMarkingS = { pecah, lapuk, bengkok, bontos_ganda: bontos, mata_kayu: mata, total_s: totalS };
+
+    currentMarkingS.pecah = totals.pecah;
+    currentMarkingS.lapuk = totals.lapuk;
+    currentMarkingS.bengkok = totals.bengkok;
+    currentMarkingS.bontos_ganda = totals.bontos_ganda;
+    currentMarkingS.mata_kayu = totals.mata_kayu;
+    currentMarkingS.total_s = totalS;
   }
 
   toggleZeroFilterBtn.addEventListener('click', () => {
