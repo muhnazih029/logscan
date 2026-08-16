@@ -78,9 +78,10 @@ router.post('/upload', upload.single('foto'), async (req, res) => {
     console.log(`[Upload] Image saved: ${relativePath}`);
 
     // Fast Header ROI OCR (<300ms) for instant SAP & Nopol detection
-    let headerInfo = { no_lapen: null, no_kendaraan: null };
+    let headerInfo = { no_lapen: null, no_kendaraan: null, total: null, panjang_log: '260 CM' };
     try {
       headerInfo = await extractHeaderROI(req.file.path);
+      console.log('[Header ROI OCR Result]', headerInfo);
     } catch (e) {
       console.warn('[Upload Header ROI]', e.message);
     }
@@ -88,8 +89,11 @@ router.post('/upload', upload.single('foto'), async (req, res) => {
     // Create record immediately in Async SQLite with status 'processing'
     const createdLog = await logService.createLog({
       foto_path: relativePath,
-      no_lapen: headerInfo.no_lapen || 'MEMPROSES...',
-      no_kendaraan: headerInfo.no_kendaraan || 'PROSES AI',
+      no_lapen: headerInfo.no_lapen || 'Merekam SAP...',
+      no_kendaraan: headerInfo.no_kendaraan || 'Nopol...',
+      panjang_log: headerInfo.panjang_log || '260 CM',
+      jumlah_batang: headerInfo.total || 0,
+      total: headerInfo.total || 0,
       status_verifikasi: 'processing',
       confidence_score: 0.0
     });

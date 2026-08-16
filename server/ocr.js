@@ -18,10 +18,10 @@ async function preprocessImage(inputPath) {
   const tempPath = path.join(path.dirname(inputPath), tempFilename);
 
   await sharp(inputPath)
-    .rotate() // Auto-orient based on EXIF
+    .rotate()
     .grayscale()
-    .linear(1.2, -10)
-    .threshold(140)
+    .linear(1.3, -15)
+    .threshold(135)
     .toFile(tempPath);
 
   return tempPath;
@@ -29,9 +29,9 @@ async function preprocessImage(inputPath) {
 
 /**
  * Fast Header ROI (Region of Interest) local OCR extraction.
- * Crops top-left header area containing NO SAP / LAPEN and NO MOBIL for instant <300ms detection.
+ * Crops top-header area containing NO SAP / LAPEN and NO MOBIL for instant <300ms detection.
  * @param {string} imagePath 
- * @returns {Promise<{ no_lapen: string|null, no_kendaraan: string|null }>}
+ * @returns {Promise<{ no_lapen: string|null, no_kendaraan: string|null, total: number|null, panjang_log: string }>}
  */
 async function extractHeaderROI(imagePath) {
   let tempPath = null;
@@ -42,12 +42,13 @@ async function extractHeaderROI(imagePath) {
       ? imagePath
       : path.join(__dirname, '../', imagePath);
 
-    if (!fs.existsSync(fullPath)) return { no_lapen: null, no_kendaraan: null };
+    if (!fs.existsSync(fullPath)) {
+      return { no_lapen: null, no_kendaraan: null, total: null, panjang_log: '260 CM' };
+    }
 
-    // Crop top-left 60% width and 35% height header region
     const metadata = await sharp(fullPath).metadata();
-    const cropWidth = Math.round((metadata.width || 1000) * 0.65);
-    const cropHeight = Math.round((metadata.height || 1000) * 0.35);
+    const cropWidth = metadata.width || 1000;
+    const cropHeight = Math.round((metadata.height || 1000) * 0.40); // Top 40% of form
 
     tempPath = path.join(path.dirname(fullPath), `header_${Date.now()}_${path.basename(fullPath)}`);
 
@@ -55,8 +56,8 @@ async function extractHeaderROI(imagePath) {
       .rotate()
       .extract({ left: 0, top: 0, width: cropWidth, height: cropHeight })
       .grayscale()
-      .linear(1.3, -15)
-      .threshold(135)
+      .linear(1.4, -20)
+      .threshold(130)
       .toFile(tempPath);
 
     worker = await createWorker('ind+eng');
@@ -65,11 +66,13 @@ async function extractHeaderROI(imagePath) {
 
     return {
       no_lapen: fields.no_lapen || null,
-      no_kendaraan: fields.no_kendaraan || null
+      no_kendaraan: fields.no_kendaraan || null,
+      total: fields.total || null,
+      panjang_log: fields.panjang_log || '260 CM'
     };
   } catch (err) {
     console.warn('[Header ROI OCR Error]', err.message);
-    return { no_lapen: null, no_kendaraan: null };
+    return { no_lapen: null, no_kendaraan: null, total: null, panjang_log: '260 CM' };
   } finally {
     if (worker) await worker.terminate();
     if (tempPath && fs.existsSync(tempPath)) {

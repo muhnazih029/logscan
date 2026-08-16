@@ -404,8 +404,8 @@ document.addEventListener('DOMContentLoaded', () => {
       badgeText = '⚠️ GAGAL AI (ISI MANUAL)';
     }
 
-    const sapDisplay = (row.no_lapen && row.no_lapen !== 'MEMPROSES...') ? row.no_lapen : 'Scanning...';
-    const nopolDisplay = (row.no_kendaraan && row.no_kendaraan !== 'PROSES AI') ? row.no_kendaraan : 'Mobil...';
+    const sapDisplay = (row.no_lapen && row.no_lapen !== 'MEMPROSES...' && row.no_lapen !== 'Merekam SAP...') ? row.no_lapen : 'Scanning...';
+    const nopolDisplay = (row.no_kendaraan && row.no_kendaraan !== 'PROSES AI' && row.no_kendaraan !== 'Nopol...') ? row.no_kendaraan : 'Mobil...';
     const panjangText = row.panjang_log || '260 CM';
 
     return `
