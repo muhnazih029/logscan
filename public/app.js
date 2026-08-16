@@ -62,7 +62,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- 1. Service Worker & PWA Install ---
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(err => console.log('[PWA] SW error:', err));
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => {
+        reg.update();
+      })
+      .catch(err => console.log('[PWA] SW error:', err));
   }
 
   let deferredPrompt = null;
