@@ -75,15 +75,19 @@ router.post('/upload', upload.single('foto'), async (req, res) => {
     }
 
     const relativePath = path.relative(path.join(__dirname, '../'), req.file.path);
-    console.log(`[Upload] Image saved: ${relativePath}`);
+    const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
+    const timeStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    console.log(`[${timeStr}] 📸 [UPLOAD SUCCESS] Foto diterima: ${path.basename(req.file.path)} (${fileSizeMB} MB)`);
 
     // Fast Header ROI OCR (<300ms) for instant SAP & Nopol detection
+    const ocrStartMs = Date.now();
     let headerInfo = { no_lapen: null, no_kendaraan: null, total: null, panjang_log: '260 CM' };
     try {
       headerInfo = await extractHeaderROI(req.file.path);
-      console.log('[Header ROI OCR Result]', headerInfo);
+      const ocrDuration = Date.now() - ocrStartMs;
+      console.log(`[${timeStr}] 🔍 [HEADER OCR] Finished in ${ocrDuration}ms -> SAP: ${headerInfo.no_lapen || 'N/A'}, Nopol: ${headerInfo.no_kendaraan || 'N/A'}, Panjang: ${headerInfo.panjang_log}`);
     } catch (e) {
-      console.warn('[Upload Header ROI]', e.message);
+      console.warn(`[${timeStr}] ⚠️ [HEADER OCR FAILED]`, e.message);
     }
 
     // Create record immediately in Async SQLite with status 'processing'

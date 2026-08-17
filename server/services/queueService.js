@@ -54,20 +54,43 @@ class AIProcessingQueue {
         }
       }
 
-      // 3. Save extracted fields to DB asynchronously
+      // 3. Save extracted fields to DB asynchronously with Smart Manual Edit Lock
       if (extractionResult && extractionResult.fields) {
-        await this.logService.updateLog(task.logId, {
-          ...extractionResult.fields,
+        const currentRecord = await this.logService.getLogById(task.logId);
+
+        const updateData = {
+          diameter_detail: extractionResult.fields.diameter_detail,
+          marking_s: extractionResult.fields.marking_s,
+          jumlah_batang: extractionResult.fields.jumlah_batang,
+          total: extractionResult.fields.total,
           confidence_score: extractionResult.confidence || 0.95,
-          status_verifikasi: 'auto'
-        });
-        console.log(`[AI Queue] Log #${task.logId} extracted via ${engineUsed} and updated to 'auto' ✅`);
+          status_verifikasi: (currentRecord && currentRecord.status_verifikasi === 'edited') ? 'edited' : 'auto'
+        };
+
+        // Only fill header fields if Checker HAS NOT manually edited them yet
+        if (!currentRecord || (currentRecord.no_lapen === 'Merekam SAP...' || currentRecord.no_lapen === 'MEMPROSES...')) {
+          if (extractionResult.fields.no_lapen) updateData.no_lapen = extractionResult.fields.no_lapen;
+        }
+        if (!currentRecord || (currentRecord.no_kendaraan === 'Nopol...' || currentRecord.no_kendaraan === 'PROSES AI')) {
+          if (extractionResult.fields.no_kendaraan) updateData.no_kendaraan = extractionResult.fields.no_kendaraan;
+        }
+        if (!currentRecord || currentRecord.status_verifikasi !== 'edited') {
+          if (extractionResult.fields.panjang_log) updateData.panjang_log = extractionResult.fields.panjang_log;
+        } else {
+          console.log(`[AI Queue] Log #${task.logId} has manual header edits -> Preserving user SAP & Nopol!`);
+        }
+
+        await this.logService.updateLog(task.logId, updateData);
+        const timeStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        const totalS = updateData.marking_s ? updateData.marking_s.total_s : 0;
+        console.log(`[${timeStr}] 🤖 [GEMINI AI SUCCESS] Log #${task.logId} extracted via ${engineUsed} -> Total: ${updateData.total} btg, Cacat S: ${totalS} btg ✅`);
       } else {
         // Mark as failed but keep image for manual entry
         await this.logService.updateLog(task.logId, {
           status_verifikasi: 'failed'
         });
-        console.warn(`[AI Queue] Extraction failed for #${task.logId}. Saved as 'failed' for manual entry.`);
+        const timeStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        console.warn(`[${timeStr}] ⚠️ [AI EXTRACTION FAILED] Log #${task.logId}. Marked as 'failed' for manual entry.`);
       }
     } catch (err) {
       console.error(`[AI Queue Exception] Log #${task.logId}:`, err.message);
