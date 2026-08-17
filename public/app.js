@@ -510,7 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (msBontos) msBontos.value = currentMarkingS.bontos_ganda || 0;
     if (msMata) msMata.value = currentMarkingS.mata_kayu || 0;
 
-    updateMarkingSTotalDisplay();
+    recalculateMarkingSTotalsFromDetails();
     switchMarkingSCategory('all');
 
     if (logData.foto_path && modalViewPhotoBtn) {
@@ -675,6 +675,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     recalculateMarkingSTotalsFromDetails();
     renderMarkingSPerDiaGrid(cat);
+  }
+
+  function updateMarkingSTotalDisplay() {
+    recalculateMarkingSTotalsFromDetails();
   }
 
   function recalculateMarkingSTotalsFromDetails() {
