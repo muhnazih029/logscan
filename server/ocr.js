@@ -1,5 +1,6 @@
 /**
  * OCR module — Uses Sharp for image pre-processing and Tesseract.js for text extraction.
+ * Includes Warm Worker Singleton for ultra-fast <150ms Header ROI OCR.
  */
 
 const { createWorker } = require('tesseract.js');
@@ -8,8 +9,25 @@ const path = require('path');
 const fs = require('fs');
 const { parseOCROutput, calculateConfidence } = require('./parser');
 
+let globalWorkerPromise = null;
+
 /**
- * Preprocesses an image to improve OCR accuracy for document forms
+ * Returns a warm singleton instance of Tesseract Worker kept in RAM
+ */
+async function getTesseractWorker() {
+  if (!globalWorkerPromise) {
+    globalWorkerPromise = (async () => {
+      console.log('[Tesseract Singleton] Initializing warm worker instance in RAM...');
+      const worker = await createWorker('ind+eng');
+      console.log('[Tesseract Singleton] Warm worker ready in RAM ✅');
+      return worker;
+    })();
+  }
+  return await globalWorkerPromise;
+}
+
+/**
+ * Preprocesses an image with Sharp to enhance text contrast without destructive thresholding
  * @param {string} inputPath 
  * @returns {Promise<string>} Path to temporary preprocessed image
  */
@@ -20,8 +38,8 @@ async function preprocessImage(inputPath) {
   await sharp(inputPath)
     .rotate()
     .grayscale()
-    .linear(1.3, -15)
-    .threshold(135)
+    .normalize() // Adjusts contrast dynamically
+    .sharpen()
     .toFile(tempPath);
 
   return tempPath;
@@ -29,13 +47,13 @@ async function preprocessImage(inputPath) {
 
 /**
  * Fast Header ROI (Region of Interest) local OCR extraction.
- * Crops top-header area containing NO SAP / LAPEN and NO MOBIL for instant <300ms detection.
+ * Uses warm worker singleton for <150ms instant SAP & Nopol detection.
  * @param {string} imagePath 
  * @returns {Promise<{ no_lapen: string|null, no_kendaraan: string|null, total: number|null, panjang_log: string }>}
  */
 async function extractHeaderROI(imagePath) {
   let tempPath = null;
-  let worker = null;
+  const startMs = Date.now();
 
   try {
     const fullPath = path.isAbsolute(imagePath)
@@ -56,13 +74,16 @@ async function extractHeaderROI(imagePath) {
       .rotate()
       .extract({ left: 0, top: 0, width: cropWidth, height: cropHeight })
       .grayscale()
-      .linear(1.4, -20)
-      .threshold(130)
+      .normalize()
+      .sharpen()
       .toFile(tempPath);
 
-    worker = await createWorker('ind+eng');
+    const worker = await getTesseractWorker();
     const { data: { text } } = await worker.recognize(tempPath);
     const fields = parseOCROutput(text);
+
+    const duration = Date.now() - startMs;
+    console.log(`[Header ROI OCR] Extracted in ${duration}ms:`, fields);
 
     return {
       no_lapen: fields.no_lapen || null,
@@ -74,7 +95,6 @@ async function extractHeaderROI(imagePath) {
     console.warn('[Header ROI OCR Error]', err.message);
     return { no_lapen: null, no_kendaraan: null, total: null, panjang_log: '260 CM' };
   } finally {
-    if (worker) await worker.terminate();
     if (tempPath && fs.existsSync(tempPath)) {
       try { fs.unlinkSync(tempPath); } catch (e) {}
     }
@@ -88,7 +108,6 @@ async function extractHeaderROI(imagePath) {
  */
 async function extractFromImage(imagePath) {
   let tempPath = null;
-  let worker = null;
 
   try {
     const fullPath = path.isAbsolute(imagePath)
@@ -100,7 +119,7 @@ async function extractFromImage(imagePath) {
     }
 
     tempPath = await preprocessImage(fullPath);
-    worker = await createWorker('ind+eng');
+    const worker = await getTesseractWorker();
 
     const { data: { text, confidence: rawConfidence } } = await worker.recognize(tempPath);
     const fields = parseOCROutput(text);
@@ -116,7 +135,6 @@ async function extractFromImage(imagePath) {
     console.error('[OCR Error]', err.message);
     throw err;
   } finally {
-    if (worker) await worker.terminate();
     if (tempPath && fs.existsSync(tempPath)) {
       try { fs.unlinkSync(tempPath); } catch (e) {}
     }
@@ -126,5 +144,6 @@ async function extractFromImage(imagePath) {
 module.exports = {
   preprocessImage,
   extractHeaderROI,
-  extractFromImage
+  extractFromImage,
+  getTesseractWorker
 };

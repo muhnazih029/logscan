@@ -495,7 +495,19 @@ document.addEventListener('DOMContentLoaded', () => {
       ? { ...markingS }
       : { pecah: 0, lapuk: 0, bengkok: 0, bontos_ganda: 0, mata_kayu: 0, total_s: 0 };
 
-    if (!Array.isArray(currentMarkingS.details)) {
+    // Sanitize details array defensively for legacy DB records
+    if (Array.isArray(currentMarkingS.details)) {
+      currentMarkingS.details = currentMarkingS.details.map(item => {
+        if (typeof item === 'object' && item !== null) {
+          return {
+            d: parseInt(item.d, 10) || 0,
+            jenis: String(item.jenis || 'pecah').toLowerCase().trim(),
+            qty: parseInt(item.qty, 10) || 1
+          };
+        }
+        return null;
+      }).filter(i => i && i.d > 0 && i.qty > 0);
+    } else {
       currentMarkingS.details = [];
     }
 

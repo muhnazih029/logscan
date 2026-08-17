@@ -1,5 +1,5 @@
 /**
- * Gemini Vision AI module — Uses Google Gemini Flash with Region Crop ROI for high-accuracy form extraction.
+ * Gemini Vision AI module — Uses Google Gemini Flash with Region Crop ROI and retry backoff.
  */
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -45,7 +45,6 @@ async function generateMarkingSRoi(inputPath) {
     const width = metadata.width || 1000;
     const height = metadata.height || 1000;
 
-    // Right 55% width, starting from top 15% to bottom 85%
     const cropLeft = Math.round(width * 0.45);
     const cropTop = Math.round(height * 0.15);
     const cropWidth = Math.round(width * 0.55);
@@ -64,7 +63,7 @@ async function generateMarkingSRoi(inputPath) {
 }
 
 /**
- * Extracts structured form data using Gemini Vision model with dual image parts (Full Form + Zoomed Marking S ROI)
+ * Extracts structured form data using Gemini Vision model with dual image parts
  * @param {string} imagePath 
  * @returns {Promise<{ fields: object, confidence: number, rawText: string }>}
  */
@@ -136,13 +135,14 @@ PETUNJUK ANALISIS VISUAL PRESISI:
 
   contents.unshift(prompt);
 
-  const modelCandidates = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.6-flash'];
+  // Model candidates with primary active models first
+  const modelCandidates = ['gemini-1.5-flash', 'gemini-2.0-flash-exp', 'gemini-flash-latest', 'gemini-3.6-flash'];
   let lastError = null;
   let responseText = null;
 
   for (const modelName of modelCandidates) {
     try {
-      console.log(`[Gemini AI] Trying model: ${modelName} with Dual ROI...`);
+      console.log(`[Gemini AI] Trying model: ${modelName}...`);
       const model = genAI.getGenerativeModel({ model: modelName });
       const result = await model.generateContent(contents);
       responseText = result.response.text().trim();
@@ -153,6 +153,10 @@ PETUNJUK ANALISIS VISUAL PRESISI:
     } catch (err) {
       console.warn(`[Gemini AI] Model ${modelName} failed:`, err.message);
       lastError = err;
+      if (err.message && err.message.includes('503')) {
+        // Wait 1s backoff on 503 rate limit spike
+        await new Promise(r => setTimeout(r, 1000));
+      }
     }
   }
 
@@ -184,11 +188,16 @@ PETUNJUK ANALISIS VISUAL PRESISI:
   }
 
   const msRaw = parsedData.marking_s || {};
-  let msDetails = Array.isArray(msRaw.details) ? msRaw.details.map(item => ({
-    d: parseInt(item.d, 10) || 0,
-    jenis: String(item.jenis || 'pecah').toLowerCase().trim(),
-    qty: parseInt(item.qty, 10) || 1
-  })).filter(i => i.d > 0 && i.qty > 0) : [];
+  let msDetails = Array.isArray(msRaw.details) ? msRaw.details.map(item => {
+    if (typeof item === 'object' && item !== null) {
+      return {
+        d: parseInt(item.d, 10) || 0,
+        jenis: String(item.jenis || 'pecah').toLowerCase().trim(),
+        qty: parseInt(item.qty, 10) || 1
+      };
+    }
+    return null;
+  }).filter(i => i && i.d > 0 && i.qty > 0) : [];
 
   const marking_s = {
     pecah: parseInt(msRaw.pecah, 10) || 0,
