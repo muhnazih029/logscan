@@ -20,12 +20,17 @@
   <!-- Cropper.js CSS -->
   <link rel="stylesheet" href="/vendor/cropper.min.css">
   
-  <link rel="stylesheet" href="/style.css?v=3.0.0">
+  <link rel="stylesheet" href="/style.css?v=10.0.0">
 
   <script>
-    // Force unregister stale Service Worker cache to apply new Sampoerna Kayoe UI immediately
+    // Force unregister Service Worker and purge all PWA cache storages
     if ('serviceWorker' in navigator) {
-      caches.keys().then(keys => keys.forEach(key => caches.delete(key)));
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        for (let reg of regs) reg.unregister();
+      });
+      if (window.caches) {
+        caches.keys().then(names => names.forEach(name => caches.delete(name)));
+      }
     }
   </script>
 </head>
@@ -46,9 +51,6 @@
       </div>
     </div>
     <div class="header-actions">
-      <button id="pwaInstallBtn" class="btn-install" style="display: none;">
-        <span>Install PWA</span>
-      </button>
       <div class="status-pill">
         <span class="status-dot"></span>
         <span id="networkStatusText">Online</span>

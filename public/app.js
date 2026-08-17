@@ -78,32 +78,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const closePhotoModalBtn = document.getElementById('closePhotoModalBtn');
   const rotatePhotoBtn = document.getElementById('rotatePhotoBtn');
 
-  const pwaInstallBtn = document.getElementById('pwaInstallBtn');
-
-  // --- 1. Service Worker & PWA Install ---
+  // --- 1. Force Unregister SW Cache ---
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => {
-        reg.update();
-      })
-      .catch(err => console.log('[PWA] SW error:', err));
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      for (let registration of registrations) {
+        registration.unregister();
+      }
+    });
   }
-
-  let deferredPrompt = null;
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    pwaInstallBtn.style.display = 'inline-block';
-  });
-
-  pwaInstallBtn.addEventListener('click', async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log('[PWA] Outcome:', outcome);
-    deferredPrompt = null;
-    pwaInstallBtn.style.display = 'none';
-  });
 
   async function updateOnlineStatus() {
     const statusText = document.getElementById('networkStatusText');
@@ -323,6 +305,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  let logDataMap = {};
+
   async function loadLogFeed(isBackgroundRefresh = false) {
     if (!isBackgroundRefresh) {
       logFeedContainer.innerHTML = '<div class="empty-feed"><span class="spinner-lg"></span><p style="margin-top:12px">Memuat data log...</p></div>';
@@ -358,6 +342,9 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         return;
       }
+
+      logDataMap = {};
+      logs.forEach(row => { logDataMap[row.id] = row; });
 
       logFeedContainer.innerHTML = logs.map(row => renderLogCard(row)).join('');
       attachCardEvents();
@@ -421,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const panjangText = row.panjang_log || '260 CM';
 
     return `
-      <div class="form-card" data-id="${row.id}" data-json='${escapeHtml(JSON.stringify(row))}'>
+      <div class="form-card" data-id="${row.id}">
         <div class="card-top-row">
           <div class="sap-number">No. SAP: ${escapeHtml(sapDisplay)}</div>
           <div class="nopol-tag">${escapeHtml(nopolDisplay)}</div>
@@ -451,24 +438,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function attachCardEvents() {
     document.querySelectorAll('.form-card').forEach(card => {
+      const logId = card.getAttribute('data-id');
+
       card.addEventListener('click', (e) => {
+        const logData = logDataMap[logId];
         const photoBtn = e.target.closest('.btn-view-photo');
+        
         if (photoBtn) {
           e.stopPropagation();
           const fotoPath = photoBtn.getAttribute('data-foto');
-          const rawJson = card.getAttribute('data-json');
-          const logData = JSON.parse(rawJson || '{}');
-          openPhotoModal(fotoPath, logData.no_lapen);
+          openPhotoModal(fotoPath, logData ? logData.no_lapen : '-');
           return;
         }
 
-        try {
-          const rawJson = card.getAttribute('data-json');
-          const logData = JSON.parse(rawJson || '{}');
+        if (logData) {
           openMatrixModal(logData);
-        } catch (err) {
-          console.error('[Card Click Error]', err);
-          showToast('Gagal membuka detail form', 'error');
+        } else {
+          showToast('Data tidak ditemukan', 'error');
         }
       });
     });
