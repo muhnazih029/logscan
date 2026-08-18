@@ -78,13 +78,15 @@ async function extractWithGemini(imagePath) {
     throw new Error(`File foto tidak ditemukan: ${imagePath}`);
   }
 
-  // Pre-resize image buffer to 1400px for 95% faster API upload without losing OCR accuracy
+  // Smart Ballpoint Contrast Enhancer: High 2000px resolution + contrast modulation for faint ballpoint pen marks
   let optimizedBuffer = null;
   try {
     optimizedBuffer = await sharp(fullPath)
       .rotate()
-      .resize({ width: 1400, withoutEnlargement: true })
-      .jpeg({ quality: 85 })
+      .resize({ width: 2000, withoutEnlargement: true })
+      .modulate({ brightness: 0.9, contrast: 1.35 })
+      .sharpen({ sigma: 1.2 })
+      .jpeg({ quality: 90 })
       .toBuffer();
   } catch (e) {
     optimizedBuffer = fs.readFileSync(fullPath);
