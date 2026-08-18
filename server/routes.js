@@ -79,25 +79,14 @@ router.post('/upload', upload.single('foto'), async (req, res) => {
     const timeStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
     console.log(`[${timeStr}] 📸 [UPLOAD SUCCESS] Foto diterima: ${path.basename(req.file.path)} (${fileSizeMB} MB)`);
 
-    // Fast Header ROI OCR (<300ms) for instant SAP & Nopol detection
-    const ocrStartMs = Date.now();
-    let headerInfo = { no_lapen: null, no_kendaraan: null, total: null, panjang_log: '260 CM' };
-    try {
-      headerInfo = await extractHeaderROI(req.file.path);
-      const ocrDuration = Date.now() - ocrStartMs;
-      console.log(`[${timeStr}] 🔍 [HEADER OCR] Finished in ${ocrDuration}ms -> SAP: ${headerInfo.no_lapen || 'N/A'}, Nopol: ${headerInfo.no_kendaraan || 'N/A'}, Panjang: ${headerInfo.panjang_log}`);
-    } catch (e) {
-      console.warn(`[${timeStr}] ⚠️ [HEADER OCR FAILED]`, e.message);
-    }
-
-    // Create record immediately in Async SQLite with status 'processing'
+    // Create record immediately in Async SQLite (<50ms) with zero STB CPU overhead
     const createdLog = await logService.createLog({
       foto_path: relativePath,
-      no_lapen: headerInfo.no_lapen || 'Merekam SAP...',
-      no_kendaraan: headerInfo.no_kendaraan || 'Nopol...',
-      panjang_log: headerInfo.panjang_log || '260 CM',
-      jumlah_batang: headerInfo.total || 0,
-      total: headerInfo.total || 0,
+      no_lapen: 'Merekam SAP...',
+      no_kendaraan: 'Nopol...',
+      panjang_log: '260 CM',
+      jumlah_batang: 0,
+      total: 0,
       status_verifikasi: 'processing',
       confidence_score: 0.0
     });
