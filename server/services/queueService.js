@@ -14,6 +14,11 @@ class AIProcessingQueue {
   }
 
   enqueue(logId, filePath) {
+    // Deduplication check: prevent enqueuing duplicate tasks for the same record
+    if (this.queue.some(t => t.logId === logId) || (this.currentTask && this.currentTask.logId === logId)) {
+      console.warn(`[AI Queue] Duplicate task ignored for log #${logId}`);
+      return;
+    }
     console.log(`[AI Queue] Enqueuing log #${logId} for background AI processing...`);
     this.queue.push({ logId, filePath });
     this.processNext();
@@ -26,6 +31,7 @@ class AIProcessingQueue {
 
     this.isProcessing = true;
     const task = this.queue.shift();
+    this.currentTask = task;
 
     try {
       console.log(`[AI Queue] Processing log #${task.logId} (${this.queue.length} items remaining in queue)...`);
@@ -101,6 +107,7 @@ class AIProcessingQueue {
       }
     } finally {
       this.isProcessing = false;
+      this.currentTask = null;
       // Continue next task in queue asynchronously
       setImmediate(() => this.processNext());
     }

@@ -173,8 +173,26 @@ document.addEventListener('DOMContentLoaded', () => {
     cameraFileInput.value = '';
   }
 
+  function setCameraButtonLoading(loading, label = 'Mengunggah...') {
+    if (loading) {
+      scanCameraBtn.disabled = true;
+      scanCameraBtn.classList.add('btn-loading');
+      scanCameraBtn.innerHTML = `<span class="spinner-sm"></span> <span>${label}</span>`;
+    } else {
+      scanCameraBtn.disabled = false;
+      scanCameraBtn.classList.remove('btn-loading');
+      scanCameraBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        <span>Ambil Foto Form Baru</span>
+      `;
+    }
+  }
+
   confirmCropBtn.addEventListener('click', () => {
-    if (!cropperInstance) return;
+    if (!cropperInstance || scanCameraBtn.disabled) return;
 
     const canvas = cropperInstance.getCroppedCanvas({
       maxWidth: 2048,
@@ -186,6 +204,8 @@ document.addEventListener('DOMContentLoaded', () => {
       showToast('Gagal memotong gambar', 'error');
       return;
     }
+
+    setCameraButtonLoading(true, 'Mengunggah & Mengekstrak...');
 
     canvas.toBlob(async (blob) => {
       closeCropModal();
@@ -219,6 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('[Upload Error]', err);
       showToast(err.message || 'Gagal mengunggah foto form', 'error');
     } finally {
+      setCameraButtonLoading(false);
       setTimeout(() => {
         uploadProgressCard.style.display = 'none';
       }, 1000);
