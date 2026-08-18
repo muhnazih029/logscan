@@ -435,11 +435,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const panjangText = row.panjang_log || '260 CM';
+    const isDup = Boolean(row.is_duplicate_lapen);
 
     return `
-      <div class="form-card" data-id="${row.id}">
+      <div class="form-card ${isDup ? 'card-duplicate-warning' : ''}" data-id="${row.id}">
         <div class="card-top-row">
-          <div class="sap-number">No. SAP: ${escapeHtml(sapDisplay)}</div>
+          <div class="sap-number">No. SAP: ${escapeHtml(sapDisplay)} ${isDup ? '<span class="badge-duplicate" title="No. SAP ini terdeteksi ganda di database!">⚠️ SAP GANDA</span>' : ''}</div>
           <div class="nopol-tag">${escapeHtml(nopolDisplay)}</div>
         </div>
 
@@ -551,6 +552,12 @@ document.addEventListener('DOMContentLoaded', () => {
     switchTab('diameter');
     renderMatrixGrid();
     if (matrixModal) matrixModal.style.display = 'flex';
+
+    if (logData.is_duplicate_lapen) {
+      setTimeout(() => {
+        showToast(`⚠️ No. SAP / Lapen "${logData.no_lapen}" terdeteksi GANDA di database. Mohon periksa kembali!`, 'warning');
+      }, 350);
+    }
   }
 
   // Tab Switching

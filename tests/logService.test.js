@@ -106,4 +106,22 @@ describe('LogService Async Unit Tests', () => {
     const fetched = await logService.getLogById(created.id);
     assert.equal(fetched, null);
   });
+
+  test('getLogs() detects duplicate no_lapen and flags is_duplicate_lapen = true', async () => {
+    const log1 = await logService.createLog({ no_lapen: '9999', no_kendaraan: 'AA 1' });
+    const log2 = await logService.createLog({ no_lapen: '9999', no_kendaraan: 'AA 2' });
+    const log3 = await logService.createLog({ no_lapen: '7777', no_kendaraan: 'AA 3' });
+
+    const feed = await logService.getLogs({ page: 1, limit: 10 });
+    const item1 = feed.data.find(d => d.id === log1.id);
+    const item2 = feed.data.find(d => d.id === log2.id);
+    const item3 = feed.data.find(d => d.id === log3.id);
+
+    assert.equal(item1.is_duplicate_lapen, true);
+    assert.equal(item2.is_duplicate_lapen, true);
+    assert.equal(item3.is_duplicate_lapen, false);
+
+    const singleFetch = await logService.getLogById(log1.id);
+    assert.equal(singleFetch.is_duplicate_lapen, true);
+  });
 });

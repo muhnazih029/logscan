@@ -436,6 +436,23 @@ body {
 .badge-manual { background: #e0f2fe; color: #0369a1; }
 .badge-edited { background: #fef3c7; color: #b45309; }
 .badge-failed { background: #fee2e2; color: #991b1b; }
+.badge-duplicate {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fdba74;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.log-card.card-duplicate-warning {
+  border-left: 4px solid #f97316 !important;
+  background: linear-gradient(180deg, #fff2e8 0%, #ffffff 60px);
+}
 .badge-processing {
   background: var(--sampoerna-gold-100);
   color: #854d0e;

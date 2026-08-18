@@ -77,8 +77,27 @@ class LogService {
     const total = totalRow ? totalRow.total : 0;
     const rows = await db.all(dataSql, ...params, limitNum, offset);
 
+    // Compute duplicate no_lapen Set for active records
+    const dupRows = await db.all(`
+      SELECT LOWER(TRIM(no_lapen)) as lapen 
+      FROM form_logs 
+      WHERE no_lapen IS NOT NULL 
+        AND TRIM(no_lapen) != '' 
+        AND no_lapen NOT IN ('Merekam SAP...', 'MEMPROSES...', 'Belum Ada')
+      GROUP BY LOWER(TRIM(no_lapen)) 
+      HAVING COUNT(*) > 1
+    `);
+    const duplicateLapenSet = new Set(dupRows.map(r => r.lapen));
+
+    const formattedData = rows.map(row => {
+      const formatted = formatRecord(row);
+      const cleanLapen = (formatted.no_lapen || '').trim().toLowerCase();
+      formatted.is_duplicate_lapen = cleanLapen ? duplicateLapenSet.has(cleanLapen) : false;
+      return formatted;
+    });
+
     return {
-      data: rows.map(formatRecord),
+      data: formattedData,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -91,7 +110,22 @@ class LogService {
   async getLogById(id) {
     const db = await this.getDb();
     const row = await db.get('SELECT * FROM form_logs WHERE id = ?', id);
-    return formatRecord(row);
+    if (!row) return null;
+    const formatted = formatRecord(row);
+    const cleanLapen = (formatted.no_lapen || '').trim().toLowerCase();
+    
+    if (cleanLapen && !['merekam sap...', 'memproses...', 'belum ada'].includes(cleanLapen)) {
+      const dupCheck = await db.get(`
+        SELECT COUNT(*) as count 
+        FROM form_logs 
+        WHERE LOWER(TRIM(no_lapen)) = ?
+      `, cleanLapen);
+      formatted.is_duplicate_lapen = dupCheck && dupCheck.count > 1;
+    } else {
+      formatted.is_duplicate_lapen = false;
+    }
+
+    return formatted;
   }
 
   async createLog(logData = {}) {
