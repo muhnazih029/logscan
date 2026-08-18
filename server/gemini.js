@@ -78,14 +78,12 @@ async function extractWithGemini(imagePath) {
     throw new Error(`File foto tidak ditemukan: ${imagePath}`);
   }
 
-  // Smart Ballpoint Contrast Enhancer: High 2000px resolution + contrast modulation for faint ballpoint pen marks
+  // Lightweight fast image resizing for STB CPU efficiency & pristine photo clarity
   let optimizedBuffer = null;
   try {
     optimizedBuffer = await sharp(fullPath)
       .rotate()
-      .resize({ width: 2000, withoutEnlargement: true })
-      .modulate({ brightness: 0.9, contrast: 1.35 })
-      .sharpen({ sigma: 1.2 })
+      .resize({ width: 1600, withoutEnlargement: true })
       .jpeg({ quality: 90 })
       .toBuffer();
   } catch (e) {
@@ -171,11 +169,6 @@ PETUNJUK ANALISIS VISUAL PRESISI:
         await new Promise(r => setTimeout(r, 1000));
       }
     }
-  }
-
-  // Cleanup temporary ROI file
-  if (roiPath && fs.existsSync(roiPath)) {
-    try { fs.unlinkSync(roiPath); } catch (e) {}
   }
 
   if (!responseText) {
